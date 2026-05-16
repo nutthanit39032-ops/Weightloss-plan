@@ -75,6 +75,21 @@ function reconcileRun(run) {
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 
+// ─── UNIT CONVERSIONS ──────────────────────────────────────────
+// แปลงหน่วยทั่วไป → กรัม (ของแข็ง) หรือ มล. (ของเหลว)
+const UNIT_CONVERT = {
+  "ฟอง":      {gPerUnit: 50},    // ไข่ไก่เบอร์ M = 50g (USDA)
+  "ฟองL":     {gPerUnit: 56},    // ไข่ไก่เบอร์ L
+  "ฟองM":     {gPerUnit: 50},    // ไข่ไก่เบอร์ M
+  "ฟองS":     {gPerUnit: 43},    // ไข่ไก่เบอร์ S
+  "ทัพพี":     {gPerUnit: 60},    // 1 ทัพพีข้าวสุก ≈ 60g (INMU)
+  "ช้อนโต๊ะ":   {gPerUnit: 15},    // 1 tbsp ≈ 15g/ml
+  "ช้อนชา":    {gPerUnit: 5},     // 1 tsp ≈ 5g/ml
+  "ถ้วย":      {gPerUnit: 240},   // 1 cup ≈ 240ml
+  "แก้ว":      {gPerUnit: 240},   // 1 glass ≈ 240ml
+  "ใบ":       {gPerUnit: 0.5},   // 1 ใบสมุนไพร ≈ 0.5g (กะเพรา/โหระพา)
+};
+
 // ─── FOOD NUTRITION DATABASE ──────────────────────────────────────
 // ค่าโภชนาการต่อ 100g (ของแข็ง) หรือ 100ml (ของเหลว)
 // แหล่งอ้างอิง:
@@ -181,7 +196,26 @@ const FOOD_DB = [
   {k:["เบียร์","beer"],                          n:"เบียร์",                       cal:43,  p:0.5,  c:3.6,  f:0,    src:"USDA 14003"},
 
   // ━━ อาหารไทย/จานเดียว (INMU per ~250-300g serving, normalized to 100g) ━━
-  {k:["ผัดกะเพรา","กะเพรา","กะเพราหมู"],         n:"ผัดกะเพราหมูสับ",              cal:175, p:9,    c:14,   f:10,   src:"INMU"},
+  // ━━ สมุนไพรไทย / Thai herbs (INMU + USDA) ━━
+  {k:["ใบกะเพรา","กะเพรา","holy basil","basil"],  n:"ใบกะเพรา",                     cal:23,  p:3.2,  c:2.7,  f:0.6,  src:"INMU"},
+  {k:["ใบโหระพา","โหระพา","sweet basil"],          n:"ใบโหระพา",                     cal:23,  p:3.2,  c:2.7,  f:0.6,  src:"USDA 02044"},
+  {k:["ใบสะระแหน่","สะระแหน่","mint"],            n:"ใบสะระแหน่",                   cal:44,  p:3.3,  c:8.4,  f:0.7,  src:"USDA 02064"},
+  {k:["ผักชี","cilantro","coriander"],            n:"ผักชี",                        cal:23,  p:2.1,  c:3.7,  f:0.5,  src:"USDA 11165"},
+  {k:["ผักชีฝรั่ง"],                              n:"ผักชีฝรั่ง",                   cal:36,  p:3.3,  c:6.3,  f:0.6,  src:"INMU"},
+  {k:["ตะไคร้","lemongrass"],                     n:"ตะไคร้",                       cal:99,  p:1.8,  c:25,   f:0.5,  src:"USDA 11979"},
+  {k:["ใบมะกรูด","kaffir lime leaf"],              n:"ใบมะกรูด",                     cal:46,  p:2.4,  c:10,   f:0.6,  src:"INMU"},
+  {k:["ขิง","ginger"],                            n:"ขิงสด",                        cal:80,  p:1.8,  c:18,   f:0.8,  src:"USDA 11216"},
+  {k:["ข่า","galangal"],                          n:"ข่า",                          cal:71,  p:1.1,  c:15,   f:0.7,  src:"INMU"},
+
+  // ━━ คาร์บดิบ (ก่อนหุง) — เพิ่มให้ recipe ใช้สะดวก ━━
+  {k:["ข้าวสาร","ข้าวขาวดิบ","raw white rice"],   n:"ข้าวสารขาว (ดิบ)",             cal:365, p:7.1,  c:80,   f:0.7,  src:"USDA 20444"},
+  {k:["ข้าวกล้องสาร","ข้าวกล้องดิบ"],              n:"ข้าวกล้อง (ดิบ)",              cal:370, p:7.9,  c:77,   f:2.9,  src:"USDA 20036"},
+  {k:["ถั่วลันเตา","green peas","ถั่วลันเตาแช่แข็ง"], n:"ถั่วลันเตา (แช่แข็ง)",      cal:77,  p:5.2,  c:13.7, f:0.4,  src:"USDA 11313"},
+  {k:["ข้าวโพดเม็ด","corn kernel","ข้าวโพดแช่แข็ง"], n:"ข้าวโพดเม็ด",                cal:88,  p:3.3,  c:20,   f:1.3,  src:"USDA 11168"},
+  {k:["แครอทหั่น","diced carrot"],                n:"แครอทหั่นเต๋า",                 cal:35,  p:0.8,  c:8.2,  f:0.2,  src:"USDA 11125"},
+
+  // ━━ อาหารไทย/จานเดียว (INMU per 100g serving) ━━
+  {k:["ผัดกะเพราหมู","ผัดกะเพราไก่","ผัดกะเพรา"], n:"ผัดกะเพราหมูสับ (สุก)",        cal:175, p:9,    c:14,   f:10,   src:"INMU"},
   {k:["ผัดไทย","pad thai"],                      n:"ผัดไทยกุ้งสด",                  cal:182, p:7.5,  c:25,   f:6,    src:"INMU"},
   {k:["ส้มตำ","papaya salad"],                   n:"ส้มตำไทย",                     cal:54,  p:1.5,  c:11,   f:0.7,  src:"INMU"},
   {k:["ต้มยำกุ้ง","tom yum"],                    n:"ต้มยำกุ้งน้ำใส",               cal:42,  p:5,    c:3,    f:1.5,  src:"INMU"},
@@ -228,6 +262,119 @@ const LS = {
   get: (k, fb) => { try { return JSON.parse(localStorage.getItem(k)||"") ; } catch { return fb; } },
   set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
+
+// ─── HABIT / STARS SYSTEM ────────────────────────────────────────
+// ระดับรางวัล Tier (สะสมดาวรวมตลอด journey 75→65 kg พ.ค.-ส.ค. 2026 ≈ 100 วัน × 5 ⭐ = 500 max)
+const TIERS = [
+  {min:0,   icon:"🌰", name:"Seed",       msg:"เริ่มต้นการเดินทาง 75→65"},
+  {min:10,  icon:"🌱", name:"Sprout",     msg:"เริ่มต้นได้สวย!"},
+  {min:25,  icon:"🔥", name:"On Fire",    msg:"ไฟแห่งความมุ่งมั่น"},
+  {min:50,  icon:"💪", name:"Strong",     msg:"เริ่มเห็นผล กล้ามขึ้น"},
+  {min:100, icon:"⚡", name:"Powerful",   msg:"ครึ่งทางแล้ว ตัวเบาขึ้น"},
+  {min:200, icon:"🥇", name:"Champion",   msg:"ระดับนักกีฬา · เฟิร์น/พิมพ์ชนกใกล้แล้ว"},
+  {min:350, icon:"💎", name:"Diamond",    msg:"แข็งแกร่งดั่งเพชร"},
+  {min:500, icon:"👑", name:"Queen 65",   msg:"🎉 ชัยชนะ! คุณคือผู้พิชิต 65kg"},
+];
+
+const STREAK_MILESTONES = [
+  {days:3,   icon:"🔥",  name:"Hot streak"},
+  {days:7,   icon:"⚡",  name:"Week warrior"},
+  {days:14,  icon:"💫",  name:"Two weeks!"},
+  {days:30,  icon:"🌟",  name:"Monthly hero"},
+  {days:60,  icon:"💎",  name:"Diamond mind"},
+  {days:100, icon:"👑",  name:"Legend"},
+];
+
+function getTier(totalStars){
+  let cur = TIERS[0], next = null;
+  for(let i=0;i<TIERS.length;i++){
+    if(totalStars>=TIERS[i].min) cur=TIERS[i];
+    else { next=TIERS[i]; break; }
+  }
+  return {cur, next, progress: next? (totalStars-cur.min)/(next.min-cur.min) : 1};
+}
+
+function getStreakBadge(days){
+  let earned = null;
+  for(const m of STREAK_MILESTONES){
+    if(days>=m.days) earned = m;
+    else break;
+  }
+  const nextIdx = STREAK_MILESTONES.findIndex(m=>m.days>days);
+  return {earned, next: nextIdx>=0?STREAK_MILESTONES[nextIdx]:null};
+}
+
+// คำนวณดาวที่ได้จากวันหนึ่ง — เกณฑ์ 5 หมวด ดวงละ 1 ดาว
+//  1⭐ แคล: อยู่ใน ±15% ของเป้า (ไม่น้อย/มากเกินไป)
+//  2⭐ โปรตีน: ถึง ≥90% ของเป้า
+//  3⭐ ออกกำลังกาย: เช็คครบหรือมีบันทึก run/muay/checked >= 3 รายการ
+//  4⭐ น้ำหนัก: บันทึกน้ำหนักวันนี้
+//  5⭐ อาหารครบมื้อ: บันทึกอาหาร ≥ 3 รายการ
+function calcStars(day, goals){
+  if(!day||!goals) return {stars:0, total:5, details:[]};
+  const eaten = (day.foods||[]).reduce((a,f)=>({cal:a.cal+f.cal,protein:a.protein+f.protein}),{cal:0,protein:0});
+  const calPct = goals.cal>0 ? eaten.cal/goals.cal : 0;
+  const protPct = goals.protein>0 ? eaten.protein/goals.protein : 0;
+  const checked = Object.values(day.checked||{}).filter(Boolean).length;
+  const hasRun = day.run && (day.run.distance>0 || day.run.duration>0);
+  const hasMuay = day.muay && (day.muay.rounds>0 || day.muay.duration>0 || day.muay.cal>0);
+  const hasClass = day.classes && day.classes.length>0 && day.classes.some(c=>c.cal>0||c.min>0);
+  const exerciseDone = checked>=3 || hasRun || hasMuay || hasClass;
+  const hasWeight = !!day.weight;
+  const mealsLogged = (day.foods||[]).length;
+
+  const details = [
+    {id:"cal", icon:"🍽️", label:"แคลพอดี", got: calPct>=0.85 && calPct<=1.15, value:`${Math.round(calPct*100)}% ของเป้า`},
+    {id:"protein", icon:"💪", label:"โปรตีนถึงเป้า", got: protPct>=0.9, value:`${Math.round(protPct*100)}% ของเป้า`},
+    {id:"exercise", icon:"🏃‍♀️", label:"ออกกำลังกาย", got: exerciseDone, value: hasRun?"วิ่ง ✓":hasMuay?"มวย ✓":hasClass?"คลาส ✓":checked>=3?`เช็คครบ ${checked}`:`${checked}/3 รายการ`},
+    {id:"weight", icon:"⚖️", label:"บันทึกน้ำหนัก", got: hasWeight, value: hasWeight?`${day.weight} kg`:"ยังไม่บันทึก"},
+    {id:"meals", icon:"📋", label:"บันทึกอาหาร", got: mealsLogged>=3, value:`${mealsLogged}/3 รายการ`},
+  ];
+  return {stars: details.filter(d=>d.got).length, total:5, details};
+}
+
+// คำนวณ streak จาก logs ทั้งหมด
+function calcStreak(logs, goalsBuilder){
+  const dates = Object.keys(logs||{}).sort();
+  if(!dates.length) return {current:0, best:0};
+  let current=0, best=0, streak=0;
+  const today = new Date().toISOString().slice(0,10);
+  // คำนวณ streak ปัจจุบัน — นับจากวันนี้ย้อนกลับ
+  let d = new Date();
+  while(true){
+    const k = d.toISOString().slice(0,10);
+    const day = logs[k];
+    if(!day) break;
+    const goals = goalsBuilder(k);
+    const {stars} = calcStars(day, goals);
+    if(stars>=4){ current++; }
+    else if(k===today){ /* วันนี้ยังไม่ครบ ไม่หัก */ }
+    else break;
+    d.setDate(d.getDate()-1);
+    if(current>300) break; // safety
+  }
+  // คำนวณ best streak
+  for(const k of dates){
+    const day = logs[k];
+    const goals = goalsBuilder(k);
+    const {stars} = calcStars(day, goals);
+    if(stars>=4){ streak++; if(streak>best) best=streak; }
+    else streak=0;
+  }
+  return {current, best};
+}
+
+// คำนวณดาวสะสมรวมทั้งหมด
+function calcTotalStars(logs, goalsBuilder){
+  let total=0;
+  for(const k of Object.keys(logs||{})){
+    const day=logs[k];
+    const goals=goalsBuilder(k);
+    const {stars}=calcStars(day,goals);
+    total+=stars;
+  }
+  return total;
+}
 
 // ─── SHARED UI ────────────────────────────────────────────────────
 function Ring({ value, max, size=74, stroke=9, color, label, sub }) {
@@ -305,8 +452,19 @@ export default function Tracker() {
     ? { ...basePlan, items: [...basePlan.items, ...customPlan.extraItems] }
     : basePlan;
   const runRec = day.run ? reconcileRun(day.run) : null;
-  const exerciseCal = (runRec?.cal||0) + (day.muay?.cal||0);
+  const exerciseCal = (runRec?.cal||0) + (day.muay?.cal||0) + (day.classes||[]).reduce((s,c)=>s+(c.cal||0),0);
   const tdee = day.daily?.tdee ?? null;
+
+  // ─── Stars / Tier / Streak (memoized) ───
+  const goalsFor = (k) => {
+    const ph = getPhase(k);
+    const p = customPlan ? { ...ph, cal: customPlan.cal, protein: customPlan.protein } : ph;
+    return macroGoals(p.cal, p.protein);
+  };
+  const totalStars = useMemo(()=>calcTotalStars(logs, goalsFor),[logs, customPlan]);
+  const streak = useMemo(()=>calcStreak(logs, goalsFor),[logs, customPlan]);
+  const tier = getTier(totalStars);
+  const streakBadge = getStreakBadge(streak.current);
 
   const card = {background:C.card,border:`1px solid ${C.border}`,borderRadius:20,padding:16,marginBottom:12};
   const inp  = {background:C.bg2,border:`1.5px solid ${C.borderHi}`,borderRadius:13,color:C.cream,padding:"11px 13px",fontSize:14,width:"100%",outline:"none",boxSizing:"border-box",fontFamily:F.round,fontWeight:600};
@@ -353,19 +511,83 @@ export default function Tracker() {
           {date!==TODAY&&<button onClick={()=>setDate(TODAY)} style={btn(phase.accent)}>วันนี้</button>}
         </div>
 
-        {tab==="today"    && <TodayTab    day={day} goals={goals} eaten={eaten} remain={remain} phase={phase} plan={plan} patch={patch} sx={sx}/>}
+        {tab==="today"    && <TodayTab    day={day} goals={goals} eaten={eaten} remain={remain} phase={phase} plan={plan} patch={patch} sx={sx} recipes={recipes} totalStars={totalStars} tier={tier} streak={streak} streakBadge={streakBadge}/>}
         {tab==="food"     && <FoodTab     day={day} patch={patch} sx={sx} recipes={recipes} setRecipes={setRecipes} eaten={eaten} goals={goals}/>}
         {tab==="exercise" && <ExerciseTab day={day} patch={patch} sx={sx} plan={plan} runRec={runRec} exerciseCal={exerciseCal} tdee={tdee}/>}
-        {tab==="progress" && <ProgressTab logs={logs} day={day} patch={patch} sx={sx} phase={phase} scans={scans} setScans={setScans} customPlan={customPlan} setCustomPlan={setCustomPlan}/>}
+        {tab==="progress" && <ProgressTab logs={logs} day={day} patch={patch} sx={sx} phase={phase} scans={scans} setScans={setScans} customPlan={customPlan} setCustomPlan={setCustomPlan} goalsFor={goalsFor} totalStars={totalStars} tier={tier} streak={streak} streakBadge={streakBadge}/>}
       </div>
     </div>
   );
 }
 
 // ═══════════════ TODAY ═══════════════
-function TodayTab({day,goals,eaten,remain,phase,plan,patch,sx}){
+function TodayTab({day,goals,eaten,remain,phase,plan,patch,sx,recipes,totalStars,tier,streak,streakBadge}){
   const [photoModal,setPhotoModal]=useState(false);
+  const [showStarDetail,setShowStarDetail]=useState(false);
+  const starInfo = calcStars(day, goals);
   return <>
+    {/* ─── TIER + STREAK BANNER ─── */}
+    <div style={{...sx.card,padding:"14px 16px",margin:"0 0 12px",background:`linear-gradient(135deg,${C.purple}25,${C.gold}15)`,borderColor:`${C.gold}55`}}>
+      <div style={{display:"flex",alignItems:"center",gap:11,marginBottom:tier.next?9:0}}>
+        <div style={{fontSize:32}}>{tier.cur.icon}</div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13,fontWeight:900,color:C.gold,letterSpacing:.3}}>{tier.cur.name}</div>
+          <div style={{fontSize:10,color:C.muted,fontWeight:700,marginTop:1}}>{tier.cur.msg}</div>
+        </div>
+        <div style={{textAlign:"right"}}>
+          <div style={{fontSize:20,fontWeight:900,color:C.gold,fontFamily:F.round,lineHeight:1}}>{totalStars}<span style={{fontSize:11,color:C.faint,fontWeight:700}}>⭐</span></div>
+          <div style={{fontSize:9,color:C.faint,fontWeight:700,marginTop:2}}>สะสม</div>
+        </div>
+      </div>
+      {tier.next&&<div>
+        <div style={{height:8,background:C.bg2,borderRadius:5,overflow:"hidden",border:`1px solid ${C.border}`}}>
+          <div style={{width:`${Math.min(100,tier.progress*100)}%`,height:"100%",background:`linear-gradient(90deg,${C.gold},${C.pink})`,transition:"width .8s ease"}}/>
+        </div>
+        <div style={{fontSize:10,color:C.faint,fontWeight:700,marginTop:5,textAlign:"center"}}>อีก {tier.next.min - totalStars} ⭐ ถึง {tier.next.icon} {tier.next.name}</div>
+      </div>}
+      {/* Streak */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:11,paddingTop:11,borderTop:`1px solid ${C.border}`}}>
+        <div style={{display:"flex",alignItems:"center",gap:7}}>
+          <span style={{fontSize:20}}>{streakBadge.earned?streakBadge.earned.icon:"🔥"}</span>
+          <div>
+            <div style={{fontSize:14,fontWeight:900,color:streak.current>0?C.pink:C.faint,fontFamily:F.round}}>{streak.current} วัน</div>
+            <div style={{fontSize:9.5,color:C.faint,fontWeight:700,marginTop:1}}>ติดต่อกัน{streakBadge.earned?` · ${streakBadge.earned.name}`:""}</div>
+          </div>
+        </div>
+        <div style={{textAlign:"right"}}>
+          <div style={{fontSize:11,color:C.cream,fontWeight:800}}>Best: {streak.best} 🏆</div>
+          {streakBadge.next&&<div style={{fontSize:9,color:C.faint,fontWeight:700,marginTop:1}}>อีก {streakBadge.next.days - streak.current} วัน → {streakBadge.next.icon}</div>}
+        </div>
+      </div>
+    </div>
+
+    {/* ─── STAR BAR วันนี้ ─── */}
+    <div onClick={()=>setShowStarDetail(!showStarDetail)} style={{...sx.card,cursor:"pointer",background:`linear-gradient(135deg,${C.gold}15,${C.pink}10)`,borderColor:`${C.gold}55`}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:starInfo.stars===5?6:0}}>
+        <div>
+          <div style={{fontSize:11,color:C.gold,fontWeight:800,letterSpacing:.5,marginBottom:3}}>⭐ ดาวประจำวันนี้</div>
+          <div style={{fontSize:22,letterSpacing:2}}>{[1,2,3,4,5].map(i=>i<=starInfo.stars?"⭐":"⚪")}</div>
+        </div>
+        <div style={{textAlign:"right"}}>
+          <div style={{fontSize:28,fontWeight:900,color:starInfo.stars===5?C.gold:C.cream,fontFamily:F.round,lineHeight:1}}>{starInfo.stars}<span style={{fontSize:14,color:C.faint,fontWeight:700}}>/5</span></div>
+          <div style={{fontSize:9.5,color:C.faint,fontWeight:700,marginTop:3}}>{showStarDetail?"ปิดรายละเอียด":"แตะดูรายละเอียด"}</div>
+        </div>
+      </div>
+      {starInfo.stars===5&&<div style={{fontSize:12,color:C.gold,fontWeight:800,textAlign:"center",marginTop:4}}>🎉 วันนี้ครบสมบูรณ์! สุดยอด!</div>}
+      {showStarDetail&&<div style={{marginTop:11,paddingTop:11,borderTop:`1px solid ${C.border}`,display:"flex",flexDirection:"column",gap:8}}>
+        {starInfo.details.map(d=>(
+          <div key={d.id} style={{display:"flex",alignItems:"center",gap:9,padding:"7px 11px",background:d.got?`${C.green}15`:C.bg2,borderRadius:10,border:`1px solid ${d.got?C.green+"55":C.border}`}}>
+            <div style={{fontSize:18}}>{d.icon}</div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,color:d.got?C.green:C.cream,fontWeight:800}}>{d.label}</div>
+              <div style={{fontSize:10.5,color:C.faint,fontWeight:600,marginTop:1}}>{d.value}</div>
+            </div>
+            <div style={{fontSize:18,color:d.got?C.green:C.faint}}>{d.got?"⭐":"⚪"}</div>
+          </div>
+        ))}
+      </div>}
+    </div>
+
     <Sec accent={phase.accent}>🎯 โควต้าวันนี้</Sec>
     <div style={{...sx.card,background:`linear-gradient(155deg,${C.cardHi},${C.card})`}}>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:4,marginBottom:4}}>
@@ -383,7 +605,7 @@ function TodayTab({day,goals,eaten,remain,phase,plan,patch,sx}){
 
     <Sec accent={C.pink}>🍱 บันทึกอาหาร</Sec>
 
-    <QuickAdd patch={patch} sx={sx}/>
+    <QuickAdd patch={patch} sx={sx} recipes={recipes||[]}/>
 
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
       <button onClick={()=>setPhotoModal(true)} style={{...sx.card,margin:0,cursor:"pointer",textAlign:"center",padding:"20px 10px",borderColor:`${C.pink}44`,background:`${C.pink}10`}}>
@@ -619,42 +841,116 @@ function FoodTab({day,patch,sx,recipes,setRecipes,eaten,goals}){
 }
 
 // Quick-add inline on TodayTab: name + amount + unit → AI → instant add
-function QuickAdd({patch,sx}){
+function QuickAdd({patch,sx,recipes}){
+  const [mode,setMode]=useState("db");  // "db" or "recipe"
   const [name,setName]=useState("");
   const [amount,setAmount]=useState("");
   const [unit,setUnit]=useState("g");
-  const [loading,setLoading]=useState(false);
+  const [state,setState]=useState("raw"); // ดิบ/สุก
+  const [recipeId,setRecipeId]=useState("");
+  const [recipeAmt,setRecipeAmt]=useState("");
   const [err,setErr]=useState("");
   const [ok,setOk]=useState(false);
 
-  const add=async()=>{
+  const stateFactor={"ข้าว":2.5,"พาสต้า":2.4,"บะหมี่":2.2,"โอ๊ต":2.0,"เนื้อ":0.75,"ไก่":0.75,"หมู":0.75,"ปลา":0.85,"กุ้ง":0.85};
+  const findFactor=(n)=>{for(const k of Object.keys(stateFactor)){if(n.includes(k))return stateFactor[k];}return 1;};
+
+  const addFromDB=()=>{
     if(!name.trim()||!amount)return;
     setErr("");setOk(false);
-    const result = calcNutrition(name, +amount, unit);
-    if(!result){
-      setErr(`ไม่พบ "${name}" ในฐานข้อมูล · ลองพิมพ์ใหม่ เช่น "อกไก่ย่าง", "ข้าวสวย", "ไข่ไก่" หรือกรอกค่าเองที่แท็บ "อาหาร"`);
-      return;
-    }
-    patch((d)=>({...d,foods:[...d.foods,{id:uid(),name:`${result.matched} ${amount}${unit}`,cal:result.cal,protein:result.protein,carbs:result.carbs,fat:result.fat,src:"ingredient",time:new Date().toTimeString().slice(0,5)}]}));
+    const item = lookupFood(name);
+    if(!item){setErr(`ไม่พบ "${name}" ในฐานข้อมูล · ลองพิมพ์ชื่อหลัก เช่น "อกไก่", "ใบกะเพรา", "ไข่ไก่"`);return;}
+    // แปลงหน่วยพิเศษ → กรัม
+    let amtInG = +amount;
+    if(UNIT_CONVERT[unit]) amtInG = +amount * UNIT_CONVERT[unit].gPerUnit;
+    // ปรับ ดิบ/สุก
+    const dbIsRaw = !item.n.includes("สุก")&&!item.n.includes("ย่าง")&&!item.n.includes("ต้ม")&&!item.n.includes("ดาว")&&!item.n.includes("เจียว");
+    let amtForCalc = amtInG;
+    if(state==="cooked"&&dbIsRaw) amtForCalc = amtInG / findFactor(item.n);
+    else if(state==="raw"&&!dbIsRaw) amtForCalc = amtInG * findFactor(item.n);
+    const factor = amtForCalc / 100;
+    patch((d)=>({...d,foods:[...d.foods,{
+      id:uid(),
+      name:`${item.n} ${amount}${unit}${state==="cooked"?" สุก":""}`,
+      cal:Math.round(item.cal*factor),
+      protein:Math.round(item.p*factor*10)/10,
+      carbs:Math.round(item.c*factor*10)/10,
+      fat:Math.round(item.f*factor*10)/10,
+      src:"ingredient", time:new Date().toTimeString().slice(0,5),
+    }]}));
     setName("");setAmount("");setOk(true);
     setTimeout(()=>setOk(false),1800);
   };
 
+  const addFromRecipe=()=>{
+    if(!recipeId||!recipeAmt)return;
+    setErr("");setOk(false);
+    const r = recipes.find(x=>x.id===recipeId);
+    if(!r){setErr("ไม่พบเมนูที่เลือก");return;}
+    const g = +recipeAmt;
+    let cal, p, c, f;
+    if(r.perGram){
+      cal = Math.round(r.perGram.cal * g);
+      p = Math.round(r.perGram.p * g * 10) / 10;
+      c = Math.round(r.perGram.c * g * 10) / 10;
+      f = Math.round(r.perGram.f * g * 10) / 10;
+    }else{
+      // recipe เก่าไม่มี perGram → ใช้ค่ารวมเฉยๆ (1 portion)
+      cal = r.cal; p = r.protein; c = r.carbs; f = r.fat;
+    }
+    patch((d)=>({...d,foods:[...d.foods,{
+      id:uid(),
+      name:`${r.emoji||"🍱"} ${r.name}${r.perGram?` ${g}g`:""}`,
+      cal, protein:p, carbs:c, fat:f,
+      src:"recipe", time:new Date().toTimeString().slice(0,5),
+    }]}));
+    setRecipeId("");setRecipeAmt("");setOk(true);
+    setTimeout(()=>setOk(false),1800);
+  };
+
   return <div style={{...sx.card,borderColor:`${C.green}44`,background:`${C.green}0a`}}>
-    <span style={{...sx.lbl,color:C.green}}>⚡ กรอกเร็ว · เปิดดูจากฐานข้อมูล USDA/INMU</span>
-    <div style={{display:"flex",gap:7}}>
-      <input style={{...sx.inp,flex:2}} placeholder="ชื่อ เช่น อกไก่ย่าง" value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&add()}/>
-      <input style={{...sx.inp,flex:1}} type="number" inputMode="decimal" placeholder="150" value={amount} onChange={e=>setAmount(e.target.value)} onKeyDown={e=>e.key==="Enter"&&add()}/>
+    <span style={{...sx.lbl,color:C.green}}>⚡ กรอกเร็ว</span>
+    {/* Mode toggle */}
+    <div style={{display:"flex",gap:6,marginBottom:9}}>
+      <button onClick={()=>{setMode("db");setErr("");}} style={{flex:1,padding:"9px 0",borderRadius:11,border:`1.5px solid ${mode==="db"?C.green:C.border}`,background:mode==="db"?`${C.green}22`:"transparent",color:mode==="db"?C.green:C.muted,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:F.round}}>🥦 วัตถุดิบ</button>
+      <button onClick={()=>{setMode("recipe");setErr("");}} disabled={recipes.length===0} style={{flex:1,padding:"9px 0",borderRadius:11,border:`1.5px solid ${mode==="recipe"?C.gold:C.border}`,background:mode==="recipe"?`${C.gold}22`:"transparent",color:mode==="recipe"?C.gold:recipes.length===0?C.faint:C.muted,fontSize:12,fontWeight:800,cursor:recipes.length===0?"not-allowed":"pointer",fontFamily:F.round,opacity:recipes.length===0?.5:1}}>🍱 จาก Recipe ({recipes.length})</button>
     </div>
-    <div style={{display:"flex",gap:7,marginTop:8}}>
-      <div style={{display:"flex",border:`1.5px solid ${C.borderHi}`,borderRadius:13,overflow:"hidden",flex:1}}>
-        {["g","ml"].map(u=>(
-          <button key={u} onClick={()=>setUnit(u)} style={{flex:1,background:unit===u?C.blue:"transparent",color:unit===u?C.bg:C.muted,border:"none",padding:"10px 0",fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:F.round}}>{u}</button>
-        ))}
+
+    {mode==="db"?<>
+      <input style={sx.inp} placeholder="ชื่อ เช่น อกไก่, ใบกะเพรา, ไข่ไก่" value={name} onChange={e=>setName(e.target.value)}/>
+      <div style={{display:"flex",gap:6,marginTop:8}}>
+        <input style={{...sx.inp,flex:1}} type="number" inputMode="decimal" placeholder="150" value={amount} onChange={e=>setAmount(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addFromDB()}/>
+        <select style={{...sx.inp,flex:1.2}} value={unit} onChange={e=>setUnit(e.target.value)}>
+          <option value="g">g</option>
+          <option value="ml">ml</option>
+          <option value="ฟอง">ฟอง (50g)</option>
+          <option value="ฟองL">ฟอง L (56g)</option>
+          <option value="ทัพพี">ทัพพี (60g)</option>
+          <option value="ช้อนโต๊ะ">ช้อนโต๊ะ</option>
+          <option value="ช้อนชา">ช้อนชา</option>
+          <option value="ใบ">ใบ</option>
+        </select>
       </div>
-      <button onClick={add} disabled={!name.trim()||!amount} style={{...sx.btnF(C.green),width:"auto",padding:"11px 18px",opacity:!name.trim()||!amount?.5:1,flex:2}}>{ok?"✓ เพิ่มแล้ว!":"✨ คำนวณ + เพิ่ม"}</button>
-    </div>
-    {err&&<div style={{color:C.pink,fontSize:10.5,fontWeight:600,marginTop:7,padding:"9px 11px",background:`${C.pink}15`,borderRadius:9,wordBreak:"break-all",maxHeight:140,overflowY:"auto",fontFamily:"monospace",lineHeight:1.5}}>⚠️ {err}</div>}
+      <div style={{display:"flex",gap:6,marginTop:8}}>
+        <button onClick={()=>setState("raw")} style={{flex:1,padding:"9px 0",borderRadius:11,border:`1.5px solid ${state==="raw"?C.gold:C.border}`,background:state==="raw"?`${C.gold}22`:"transparent",color:state==="raw"?C.gold:C.muted,fontSize:11.5,fontWeight:800,cursor:"pointer",fontFamily:F.round}}>🥩 ดิบ</button>
+        <button onClick={()=>setState("cooked")} style={{flex:1,padding:"9px 0",borderRadius:11,border:`1.5px solid ${state==="cooked"?C.green:C.border}`,background:state==="cooked"?`${C.green}22`:"transparent",color:state==="cooked"?C.green:C.muted,fontSize:11.5,fontWeight:800,cursor:"pointer",fontFamily:F.round}}>🍳 สุก</button>
+      </div>
+      <button onClick={addFromDB} disabled={!name.trim()||!amount} style={{...sx.btnF(C.green),marginTop:9,opacity:!name.trim()||!amount?.5:1}}>{ok?"✓ เพิ่มแล้ว!":"✨ คำนวณ + เพิ่ม"}</button>
+    </>:<>
+      <select style={sx.inp} value={recipeId} onChange={e=>setRecipeId(e.target.value)}>
+        <option value="">— เลือกเมนู —</option>
+        {recipes.map(r=>(<option key={r.id} value={r.id}>{r.emoji||"🍱"} {r.name}{r.perGram?` (${Math.round(r.perGram.cal*100)/100} kcal/g)`:""}</option>))}
+      </select>
+      <input style={{...sx.inp,marginTop:8}} type="number" inputMode="decimal" placeholder="ตักกินกี่กรัม? เช่น 100" value={recipeAmt} onChange={e=>setRecipeAmt(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addFromRecipe()}/>
+      {recipeId&&recipeAmt&&(()=>{
+        const r=recipes.find(x=>x.id===recipeId);
+        if(!r||!r.perGram)return null;
+        return <div style={{fontSize:11.5,color:C.gold,fontWeight:800,marginTop:6,padding:"7px 11px",background:`${C.gold}15`,borderRadius:9}}>= {Math.round(r.perGram.cal*+recipeAmt)} kcal · P {Math.round(r.perGram.p*+recipeAmt*10)/10}g</div>;
+      })()}
+      <button onClick={addFromRecipe} disabled={!recipeId||!recipeAmt} style={{...sx.btnF(C.gold),marginTop:9,opacity:!recipeId||!recipeAmt?.5:1}}>{ok?"✓ เพิ่มแล้ว!":"✨ เบิกจาก Recipe + เพิ่ม"}</button>
+    </>}
+
+    {err&&<div style={{color:C.pink,fontSize:11,fontWeight:700,marginTop:7,padding:"9px 11px",background:`${C.pink}15`,borderRadius:9,lineHeight:1.5}}>⚠️ {err}</div>}
   </div>;
 }
 
@@ -717,19 +1013,162 @@ function ManualModal({close,patch,sx}){
 
 function RecipeModal({close,setRecipes,sx}){
   const EM=["🍱","🍗","🥗","🍳","🐟","🍜","🥩","🍚","🥪","🍲"];
-  const [r,setR]=useState({name:"",emoji:"🍱",cal:"",protein:"",carbs:"",fat:""});
+  const [name,setName]=useState("");
+  const [emoji,setEmoji]=useState("🍱");
+  const [ings,setIngs]=useState([]); // [{name,amount,unit,state:"raw"|"cooked",cal,p,c,f,matched}]
+  const [cookedWeight,setCookedWeight]=useState("");
+  // ฟอร์มเพิ่มวัตถุดิบ
+  const [iName,setIName]=useState("");
+  const [iAmt,setIAmt]=useState("");
+  const [iUnit,setIUnit]=useState("g");
+  const [iState,setIState]=useState("raw");  // ดิบ/สุก
+  const [err,setErr]=useState("");
+
+  // ค่าแปลงดิบ→สุก (USDA factor): สุก = ดิบ × X
+  // ใช้คูณค่าโภชนาการ "ต่อ 100g" ตอนเปลี่ยน state
+  // ถ้า DB เป็นดิบ แต่ผู้ใช้กรอกน้ำหนักสุก → ต้องหาร factor (สุกหนักกว่าเพราะดูดน้ำ)
+  const stateFactor={
+    "ข้าว":     {rawToCooked:2.5},   // ข้าวดิบ 100g → สุก 250g
+    "พาสต้า":   {rawToCooked:2.4},
+    "บะหมี่":   {rawToCooked:2.2},
+    "โอ๊ต":     {rawToCooked:2.0},
+    "เนื้อ":    {rawToCooked:0.75},  // เนื้อสุกหดลง 25%
+    "ไก่":      {rawToCooked:0.75},
+    "หมู":      {rawToCooked:0.75},
+    "ปลา":      {rawToCooked:0.85},
+    "กุ้ง":     {rawToCooked:0.85},
+  };
+  // หาว่าวัตถุดิบเป็นกลุ่มไหน → ใช้ factor ไหน
+  const findFactor=(n)=>{
+    for(const k of Object.keys(stateFactor)){
+      if(n.includes(k))return stateFactor[k].rawToCooked;
+    }
+    return 1; // ไม่รู้ → ไม่แปลง
+  };
+
+  const addIng=()=>{
+    setErr("");
+    if(!iName.trim()||!iAmt){setErr("กรอกชื่อ + ปริมาณ");return;}
+    const item=lookupFood(iName);
+    if(!item){setErr(`ไม่พบ "${iName}" ในฐานข้อมูล`);return;}
+    let amtInG=+iAmt;
+    // แปลงหน่วยพิเศษ → กรัม
+    if(UNIT_CONVERT&&UNIT_CONVERT[iUnit]){
+      amtInG = +iAmt * UNIT_CONVERT[iUnit].gPerUnit;
+    }
+    // ค่าใน DB เป็นดิบ — ถ้าผู้ใช้กรอกน้ำหนักสุก ต้องแปลงเป็นดิบก่อนคิด
+    const dbIsRaw = !item.n.includes("สุก")&&!item.n.includes("ย่าง")&&!item.n.includes("ต้ม")&&!item.n.includes("ดาว")&&!item.n.includes("เจียว");
+    let amtForCalc = amtInG;
+    if(iState==="cooked"&&dbIsRaw){
+      // ผู้ใช้กรอกน้ำหนักสุก แต่ DB เป็นดิบ → แปลงสุก→ดิบ
+      const f = findFactor(item.n);
+      amtForCalc = amtInG / f;
+    }else if(iState==="raw"&&!dbIsRaw){
+      // ผู้ใช้กรอกน้ำหนักดิบ แต่ DB เป็นสุก → แปลงดิบ→สุก
+      const f = findFactor(item.n);
+      amtForCalc = amtInG * f;
+    }
+    const factor=amtForCalc/100;
+    setIngs(prev=>[...prev,{
+      id:uid(),
+      name:item.n, raw:iName,
+      amount:+iAmt, unit:iUnit, amtInG, state:iState,
+      cal:Math.round(item.cal*factor),
+      p:Math.round(item.p*factor*10)/10,
+      c:Math.round(item.c*factor*10)/10,
+      f:Math.round(item.f*factor*10)/10,
+    }]);
+    setIName("");setIAmt("");setIUnit("g");setIState("raw");
+  };
+
+  const totals=ings.reduce((s,i)=>({cal:s.cal+i.cal,p:s.p+i.p,c:s.c+i.c,f:s.f+i.f}),{cal:0,p:0,c:0,f:0});
+
+  const save=()=>{
+    setErr("");
+    if(!name.trim()){setErr("ตั้งชื่อเมนูก่อน");return;}
+    if(ings.length===0){setErr("เพิ่มวัตถุดิบอย่างน้อย 1 อย่าง");return;}
+    if(!cookedWeight){setErr("กรอกน้ำหนักหลังหุง/ทำเสร็จ");return;}
+    const totalG=+cookedWeight;
+    setRecipes(rs=>[...rs,{
+      id:uid(), name, emoji,
+      ingredients:ings.map(i=>({name:i.name,amount:i.amount,unit:i.unit,state:i.state})),
+      totalCal:totals.cal, totalP:Math.round(totals.p*10)/10, totalC:Math.round(totals.c*10)/10, totalF:Math.round(totals.f*10)/10,
+      cookedWeight:totalG,
+      perGram:{cal:totals.cal/totalG,p:totals.p/totalG,c:totals.c/totalG,f:totals.f/totalG},
+      // เก็บ field เก่าด้วยให้ backwards compatible
+      cal:totals.cal, protein:Math.round(totals.p*10)/10, carbs:Math.round(totals.c*10)/10, fat:Math.round(totals.f*10)/10,
+    }]);
+    close();
+  };
+
   return <Modal close={close} title="🍱 สร้างเมนูใหม่">
-    <div style={{display:"flex",flexDirection:"column",gap:10}}>
-      <div><span style={sx.lbl}>ไอคอน</span><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{EM.map(e=><span key={e} onClick={()=>setR(p=>({...p,emoji:e}))} style={{fontSize:22,padding:7,borderRadius:12,cursor:"pointer",background:r.emoji===e?C.gold+"33":"transparent",border:`1.5px solid ${r.emoji===e?C.gold:C.border}`}}>{e}</span>)}</div></div>
-      <div><span style={sx.lbl}>ชื่อเมนู (เช่น กุ้ง + ข้าว)</span><input style={sx.inp} value={r.name} onChange={e=>setR(p=>({...p,name:e.target.value}))}/></div>
-      <div style={{fontSize:11,color:C.faint,fontWeight:600}}>💡 กรอกยอดรวมสารอาหารของทุกวัตถุดิบในเมนู</div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <div><span style={sx.lbl}>แคลรวม</span><input style={sx.inp} type="number" value={r.cal} onChange={e=>setR(p=>({...p,cal:e.target.value}))}/></div>
-        <div><span style={sx.lbl}>โปรตีนรวม g</span><input style={sx.inp} type="number" value={r.protein} onChange={e=>setR(p=>({...p,protein:e.target.value}))}/></div>
-        <div><span style={sx.lbl}>คาร์บรวม g</span><input style={sx.inp} type="number" value={r.carbs} onChange={e=>setR(p=>({...p,carbs:e.target.value}))}/></div>
-        <div><span style={sx.lbl}>ไขมันรวม g</span><input style={sx.inp} type="number" value={r.fat} onChange={e=>setR(p=>({...p,fat:e.target.value}))}/></div>
+    <div style={{display:"flex",flexDirection:"column",gap:11}}>
+      {/* ─── ส่วนหัว ชื่อ + icon ─── */}
+      <div><span style={sx.lbl}>ไอคอน</span>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {EM.map(e=><span key={e} onClick={()=>setEmoji(e)} style={{fontSize:22,padding:7,borderRadius:12,cursor:"pointer",background:emoji===e?C.gold+"33":"transparent",border:`1.5px solid ${emoji===e?C.gold:C.border}`}}>{e}</span>)}
+        </div>
       </div>
-      <button style={sx.btnF(C.green)} onClick={()=>{if(!r.name||!r.cal)return;setRecipes((rs)=>[...rs,{id:uid(),name:r.name,emoji:r.emoji,cal:+r.cal,protein:+r.protein||0,carbs:+r.carbs||0,fat:+r.fat||0}]);close();}}>บันทึกเมนู</button>
+      <div><span style={sx.lbl}>ชื่อเมนู</span>
+        <input style={sx.inp} placeholder="เช่น ข้าวผสมถั่วลันเตา" value={name} onChange={e=>setName(e.target.value)}/>
+      </div>
+
+      {/* ─── เพิ่มวัตถุดิบ ─── */}
+      <div style={{...sx.card,margin:0,borderColor:`${C.blue}44`,background:`${C.blue}10`}}>
+        <span style={{...sx.lbl,color:C.blue}}>+ เพิ่มวัตถุดิบ</span>
+        <input style={sx.inp} placeholder="ชื่อ เช่น ข้าวสาร, ถั่วลันเตา" value={iName} onChange={e=>setIName(e.target.value)}/>
+        <div style={{display:"flex",gap:6,marginTop:8}}>
+          <input style={{...sx.inp,flex:1}} type="number" placeholder="150" value={iAmt} onChange={e=>setIAmt(e.target.value)}/>
+          <select style={{...sx.inp,flex:1}} value={iUnit} onChange={e=>setIUnit(e.target.value)}>
+            <option value="g">g</option>
+            <option value="ml">ml</option>
+            <option value="ฟอง">ฟอง</option>
+            <option value="ฟองL">ฟอง L</option>
+            <option value="ฟองM">ฟอง M</option>
+            <option value="ทัพพี">ทัพพี</option>
+            <option value="ช้อนโต๊ะ">ช้อนโต๊ะ</option>
+            <option value="ช้อนชา">ช้อนชา</option>
+            <option value="ใบ">ใบ</option>
+          </select>
+        </div>
+        <div style={{display:"flex",gap:6,marginTop:8}}>
+          <button onClick={()=>setIState("raw")} style={{flex:1,padding:"9px 0",borderRadius:11,border:`1.5px solid ${iState==="raw"?C.gold:C.border}`,background:iState==="raw"?`${C.gold}22`:"transparent",color:iState==="raw"?C.gold:C.muted,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:F.round}}>🥩 ดิบ</button>
+          <button onClick={()=>setIState("cooked")} style={{flex:1,padding:"9px 0",borderRadius:11,border:`1.5px solid ${iState==="cooked"?C.green:C.border}`,background:iState==="cooked"?`${C.green}22`:"transparent",color:iState==="cooked"?C.green:C.muted,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:F.round}}>🍳 สุก</button>
+        </div>
+        <button onClick={addIng} style={{...sx.btnF(C.blue),marginTop:10,padding:"10px 0",fontSize:13}}>+ เพิ่มเข้าเมนู</button>
+      </div>
+
+      {/* ─── รายการวัตถุดิบที่ใส่ ─── */}
+      {ings.length>0&&<div>
+        <span style={{...sx.lbl,color:C.cream}}>วัตถุดิบในเมนู ({ings.length})</span>
+        {ings.map((i,idx)=>(
+          <div key={i.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",background:C.bg2,borderRadius:10,marginBottom:5}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12.5,color:C.cream,fontWeight:700}}>{i.name}</div>
+              <div style={{fontSize:10.5,color:C.faint,fontWeight:600,marginTop:1}}>{i.amount}{i.unit} {i.state==="raw"?"🥩 ดิบ":"🍳 สุก"} · {i.cal} kcal · P{i.p}g</div>
+            </div>
+            <button onClick={()=>setIngs(prev=>prev.filter(x=>x.id!==i.id))} style={{background:"transparent",border:"none",color:C.pink,fontSize:18,cursor:"pointer",padding:"0 5px"}}>×</button>
+          </div>
+        ))}
+        <div style={{padding:"9px 11px",background:`${C.gold}15`,borderRadius:10,marginTop:8}}>
+          <div style={{fontSize:11,color:C.faint,fontWeight:700}}>รวมสารอาหารทั้งเมนู</div>
+          <div style={{fontSize:13,color:C.gold,fontWeight:800,marginTop:3}}>{totals.cal} kcal · P {Math.round(totals.p*10)/10}g · C {Math.round(totals.c*10)/10}g · F {Math.round(totals.f*10)/10}g</div>
+        </div>
+      </div>}
+
+      {/* ─── น้ำหนักหลังหุง/ทำเสร็จ ─── */}
+      {ings.length>0&&<div>
+        <span style={sx.lbl}>⚖️ น้ำหนักหลังหุง/ทำเสร็จ (g)</span>
+        <input style={sx.inp} type="number" placeholder="เช่น 380" value={cookedWeight} onChange={e=>setCookedWeight(e.target.value)}/>
+        <div style={{fontSize:10.5,color:C.faint,marginTop:4,fontWeight:600,lineHeight:1.5}}>💡 ชั่งหลังทำเสร็จทั้งหมด เช่น ข้าวหุงเสร็จในหม้อ → ระบบจะคำนวณ kcal/g ให้ ตอนตักมากินจะคูณตามน้ำหนักที่กิน</div>
+        {cookedWeight&&+cookedWeight>0&&<div style={{fontSize:12,color:C.green,fontWeight:800,marginTop:6,padding:"7px 11px",background:`${C.green}15`,borderRadius:9}}>
+          ➗ {Math.round((totals.cal/+cookedWeight)*100)/100} kcal/g · ตักกิน 100g = {Math.round(totals.cal/+cookedWeight*100)} kcal
+        </div>}
+      </div>}
+
+      {err&&<div style={{color:C.pink,fontSize:12,fontWeight:700,padding:"8px 11px",background:`${C.pink}15`,borderRadius:9}}>⚠️ {err}</div>}
+
+      <button style={sx.btnF(C.green)} onClick={save}>💾 บันทึกเมนู</button>
     </div>
   </Modal>;
 }
@@ -824,6 +1263,23 @@ function ExerciseTab({day,patch,sx,plan,runRec,exerciseCal,tdee}){
       </div>
     </div>
 
+    <Sec accent={C.purple}>💃 คลาส Jetts · จาก Garmin</Sec>
+    <div style={{...sx.card,borderColor:`${C.purple}33`}}>
+      <div style={{fontSize:11,color:C.muted,marginBottom:10,fontWeight:600}}>วันที่ไปเข้าคลาส (Yoga, Body Pump, HIIT, ฯลฯ) — แคลจาก Garmin จะรวมเข้าพลังงานใช้ของวัน</div>
+      {(day.classes||[]).map((cl,idx)=>(
+        <div key={cl.id} style={{display:"grid",gridTemplateColumns:"1.4fr 1fr 0.8fr auto",gap:7,marginBottom:8,alignItems:"start"}}>
+          <input style={sx.inp} placeholder="ชื่อคลาส เช่น HIIT" value={cl.name||""} onChange={e=>patch((d)=>({...d,classes:(d.classes||[]).map((c,i)=>i===idx?{...c,name:e.target.value}:c)}))}/>
+          <input style={sx.inp} type="number" placeholder="แคล (Garmin)" value={cl.cal??""} onChange={e=>patch((d)=>({...d,classes:(d.classes||[]).map((c,i)=>i===idx?{...c,cal:n(e.target.value)}:c)}))}/>
+          <input style={sx.inp} type="number" placeholder="นาที" value={cl.min??""} onChange={e=>patch((d)=>({...d,classes:(d.classes||[]).map((c,i)=>i===idx?{...c,min:n(e.target.value)}:c)}))}/>
+          <button onClick={()=>patch((d)=>({...d,classes:(d.classes||[]).filter((_,i)=>i!==idx)}))} style={{background:"transparent",border:"none",color:C.pink,fontSize:20,cursor:"pointer",padding:"8px 4px",lineHeight:1}}>×</button>
+        </div>
+      ))}
+      <button onClick={()=>patch((d)=>({...d,classes:[...(d.classes||[]),{id:uid(),name:"",cal:null,min:null}]}))} style={{...sx.btnF(C.purple),padding:"10px 0",fontSize:13}}>+ เพิ่มคลาส</button>
+      {(day.classes||[]).length>0&&<div style={{marginTop:11,padding:"8px 12px",background:`${C.purple}15`,borderRadius:10,fontSize:12,color:C.purple,fontWeight:800}}>
+        💪 รวมแคลคลาส: {(day.classes||[]).reduce((s,c)=>s+(c.cal||0),0)} kcal
+      </div>}
+    </div>
+
     <Sec accent={C.green}>👟 ชีวิตประจำวัน · Apple Health</Sec>
     <div style={{...sx.card,borderColor:`${C.green}33`}}>
       <div style={{fontSize:11,color:C.muted,marginBottom:10,fontWeight:600}}>กรอกจากแอป Apple Health — TDEE จะถูกคำนวณความแม่นยำ ±10%</div>
@@ -871,10 +1327,11 @@ function ExtraForm({close,patch,sx}){
 }
 
 // ═══════════════ PROGRESS TAB ═══════════════
-function ProgressTab({logs,day,patch,sx,phase,scans,setScans,customPlan,setCustomPlan}){
+function ProgressTab({logs,day,patch,sx,phase,scans,setScans,customPlan,setCustomPlan,goalsFor,totalStars,tier,streak,streakBadge}){
   const [section,setSection]=useState("weight");
   const [wi,setWi]=useState("");
   const [evoltModal,setEvoltModal]=useState(false);
+  const [calMon,setCalMon]=useState(()=>new Date().toISOString().slice(0,7));
 
   const wHist=useMemo(()=>Object.values(logs).filter((l)=>l.weight).sort((a,b)=>a.date.localeCompare(b.date)).map((l)=>({date:l.date,weight:l.weight})),[logs]);
   const latest=wHist.length?wHist[wHist.length-1].weight:GOAL_START;
@@ -900,12 +1357,12 @@ function ProgressTab({logs,day,patch,sx,phase,scans,setScans,customPlan,setCusto
     </div>
 
     <div style={{display:"flex",gap:8,marginBottom:12}}>
-      {[["weight","⚖️ น้ำหนัก"],["running","🏃 การวิ่ง"]].map(([s,t])=>(
-        <button key={s} onClick={()=>setSection(s)} style={{flex:1,padding:"11px",borderRadius:14,fontSize:12.5,fontWeight:800,cursor:"pointer",fontFamily:F.round,border:`1.5px solid ${section===s?C.gold:C.border}`,color:section===s?C.gold:C.muted,background:section===s?`${C.gold}1a`:"transparent"}}>{t}</button>
+      {[["weight","⚖️ น้ำหนัก"],["running","🏃 วิ่ง"],["habits","⭐ Habits"]].map(([s,t])=>(
+        <button key={s} onClick={()=>setSection(s)} style={{flex:1,padding:"11px 4px",borderRadius:14,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:F.round,border:`1.5px solid ${section===s?C.gold:C.border}`,color:section===s?C.gold:C.muted,background:section===s?`${C.gold}1a`:"transparent"}}>{t}</button>
       ))}
     </div>
 
-    {section==="weight"?<>
+    {section==="habits"?<HabitsSection logs={logs} sx={sx} goalsFor={goalsFor} totalStars={totalStars} tier={tier} streak={streak} streakBadge={streakBadge} calMon={calMon} setCalMon={setCalMon}/>:section==="weight"?<>
       <div style={sx.card}>
         <span style={sx.lbl}>ชั่งรายวัน (ทุกเช้า หลังห้องน้ำ)</span>
         <div style={{display:"flex",gap:8}}>
@@ -1290,4 +1747,150 @@ function rFeedback(runs,monthKm){
   else if(long<10)msg+="· เป้าถัดไป: ค่อยๆ ขยับเข้าใกล้ 10K ใน Phase 4";
   else msg+="· คุณแตะ 10K แล้ว! 🎉 รักษาความสม่ำเสมอไว้";
   return msg;
+}
+
+// ─── HABITS SECTION (Calendar + Streak + Tier) ───────────────────
+function HabitsSection({logs,sx,goalsFor,totalStars,tier,streak,streakBadge,calMon,setCalMon}){
+  // ปฏิทินของเดือน calMon (YYYY-MM)
+  const [y,m] = calMon.split("-").map(Number);
+  const firstDay = new Date(y,m-1,1).getDay(); // 0=Sun
+  const daysInMonth = new Date(y,m,0).getDate();
+  // จำนวนดาวต่อวัน
+  const starsForDay = (k) => {
+    const d = logs[k]; if(!d) return -1;
+    const g = goalsFor(k);
+    return calcStars(d,g).stars;
+  };
+  // สีตามจำนวนดาว
+  const colorFor = (s) => s===5?C.gold:s===4?C.green:s===3?C.blue:s>=1?C.purple:s===0?C.pink:"transparent";
+  const prevMon = () => {
+    const dt=new Date(y,m-2,1);
+    setCalMon(`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}`);
+  };
+  const nextMon = () => {
+    const dt=new Date(y,m,1);
+    setCalMon(`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}`);
+  };
+  const monStars = useMemo(()=>{
+    let s=0;
+    for(let i=1;i<=daysInMonth;i++){
+      const k=`${y}-${String(m).padStart(2,"0")}-${String(i).padStart(2,"0")}`;
+      const v=starsForDay(k);
+      if(v>0) s+=v;
+    }
+    return s;
+  },[logs,calMon]);
+
+  const monthNames=["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+
+  return <>
+    {/* Tier card */}
+    <div style={{...sx.card,background:`linear-gradient(135deg,${C.purple}30,${C.gold}20)`,borderColor:`${C.gold}66`,textAlign:"center"}}>
+      <div style={{fontSize:50,marginBottom:6}}>{tier.cur.icon}</div>
+      <div style={{fontSize:20,fontWeight:900,color:C.gold,fontFamily:F.round}}>{tier.cur.name}</div>
+      <div style={{fontSize:11.5,color:C.muted,fontWeight:700,marginTop:4}}>{tier.cur.msg}</div>
+      <div style={{marginTop:14,padding:"10px 14px",background:C.bg2,borderRadius:13,border:`1px solid ${C.border}`}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
+          <span style={{fontSize:11,color:C.faint,fontWeight:800}}>ดาวสะสมทั้งหมด</span>
+          <span style={{fontSize:18,fontWeight:900,color:C.gold,fontFamily:F.round}}>{totalStars} ⭐</span>
+        </div>
+        {tier.next&&<>
+          <div style={{height:8,background:C.border,borderRadius:5,overflow:"hidden"}}>
+            <div style={{width:`${Math.min(100,tier.progress*100)}%`,height:"100%",background:`linear-gradient(90deg,${C.gold},${C.pink})`,transition:"width .8s ease"}}/>
+          </div>
+          <div style={{fontSize:10,color:C.faint,fontWeight:700,marginTop:6,textAlign:"center"}}>อีก {tier.next.min - totalStars} ⭐ → {tier.next.icon} {tier.next.name}</div>
+        </>}
+        {!tier.next&&<div style={{fontSize:11,color:C.gold,fontWeight:800,textAlign:"center",marginTop:4}}>🎉 พิชิตทุก Tier!</div>}
+      </div>
+    </div>
+
+    {/* Streak card */}
+    <div style={{...sx.card,background:`linear-gradient(135deg,${C.pink}20,${C.gold}15)`,borderColor:`${C.pink}55`}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <div style={{textAlign:"center",padding:"11px",background:C.bg2,borderRadius:13,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:32,fontWeight:900,color:C.pink,fontFamily:F.round}}>{streak.current}</div>
+          <div style={{fontSize:10,color:C.muted,fontWeight:800,marginTop:2}}>🔥 ติดต่อกัน (วัน)</div>
+        </div>
+        <div style={{textAlign:"center",padding:"11px",background:C.bg2,borderRadius:13,border:`1px solid ${C.border}`}}>
+          <div style={{fontSize:32,fontWeight:900,color:C.gold,fontFamily:F.round}}>{streak.best}</div>
+          <div style={{fontSize:10,color:C.muted,fontWeight:800,marginTop:2}}>🏆 Best Streak</div>
+        </div>
+      </div>
+      {/* Streak milestones */}
+      <div style={{marginTop:12,paddingTop:11,borderTop:`1px solid ${C.border}`}}>
+        <div style={{fontSize:10.5,color:C.faint,fontWeight:800,marginBottom:8,letterSpacing:.4}}>STREAK MILESTONES</div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:5}}>
+          {STREAK_MILESTONES.map(m=>{
+            const got = streak.current>=m.days;
+            return <div key={m.days} style={{flex:1,textAlign:"center",padding:"7px 2px",borderRadius:10,background:got?`${C.gold}25`:"transparent",border:`1px solid ${got?C.gold:C.border}`,opacity:got?1:.4}}>
+              <div style={{fontSize:18,marginBottom:2}}>{m.icon}</div>
+              <div style={{fontSize:9.5,color:got?C.gold:C.faint,fontWeight:800}}>{m.days}d</div>
+            </div>;
+          })}
+        </div>
+      </div>
+    </div>
+
+    {/* Calendar */}
+    <div style={sx.card}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:13}}>
+        <button onClick={prevMon} style={{background:"transparent",border:`1.5px solid ${C.border}`,color:C.cream,width:34,height:34,borderRadius:"50%",fontSize:18,cursor:"pointer",fontWeight:900}}>‹</button>
+        <div style={{textAlign:"center"}}>
+          <div style={{fontSize:15,fontWeight:900,color:C.cream}}>📅 {monthNames[m-1]} {y+543}</div>
+          <div style={{fontSize:10.5,color:C.gold,fontWeight:800,marginTop:2}}>เดือนนี้ได้ {monStars} ⭐</div>
+        </div>
+        <button onClick={nextMon} style={{background:"transparent",border:`1.5px solid ${C.border}`,color:C.cream,width:34,height:34,borderRadius:"50%",fontSize:18,cursor:"pointer",fontWeight:900}}>›</button>
+      </div>
+      {/* Days of week header */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4,marginBottom:6}}>
+        {["อา","จ","อ","พ","พฤ","ศ","ส"].map((d,i)=>(
+          <div key={i} style={{textAlign:"center",fontSize:10,color:C.faint,fontWeight:800,padding:"4px 0"}}>{d}</div>
+        ))}
+      </div>
+      {/* Calendar grid */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4}}>
+        {Array.from({length:firstDay}).map((_,i)=><div key={`e${i}`}/>)}
+        {Array.from({length:daysInMonth},(_,i)=>i+1).map(d=>{
+          const k=`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+          const s=starsForDay(k);
+          const today=k===new Date().toISOString().slice(0,10);
+          const future=new Date(k)>new Date();
+          return <div key={d} style={{aspectRatio:"1",borderRadius:9,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:s>=0?`${colorFor(s)}22`:future?"transparent":`${C.pink}08`,border:`1.5px solid ${today?C.gold:s>=0?colorFor(s)+"66":future?C.border:C.border}`,opacity:future?.4:1}}>
+            <div style={{fontSize:11,fontWeight:800,color:today?C.gold:s>=0?colorFor(s):C.faint}}>{d}</div>
+            {s>=0&&<div style={{fontSize:9,fontWeight:900,color:colorFor(s),marginTop:1}}>{s===5?"⭐⭐⭐⭐⭐":s===4?"⭐⭐⭐⭐":s===3?"⭐⭐⭐":s===2?"⭐⭐":s===1?"⭐":"·"}</div>}
+          </div>;
+        })}
+      </div>
+      {/* Legend */}
+      <div style={{marginTop:13,paddingTop:11,borderTop:`1px solid ${C.border}`,display:"flex",justifyContent:"space-around",fontSize:9.5,color:C.faint,fontWeight:700,flexWrap:"wrap",gap:5}}>
+        <span><span style={{color:C.gold}}>●</span> 5⭐</span>
+        <span><span style={{color:C.green}}>●</span> 4⭐</span>
+        <span><span style={{color:C.blue}}>●</span> 3⭐</span>
+        <span><span style={{color:C.purple}}>●</span> 1-2⭐</span>
+        <span><span style={{color:C.pink}}>●</span> ขาด</span>
+      </div>
+    </div>
+
+    {/* Tier list */}
+    <div style={sx.card}>
+      <div style={{fontSize:13,fontWeight:900,color:C.cream,marginBottom:11}}>🏆 Tier Roadmap · เส้นทางสู่ 65 kg</div>
+      <div style={{display:"flex",flexDirection:"column",gap:7}}>
+        {TIERS.map((t,i)=>{
+          const reached = totalStars>=t.min;
+          const isCur = tier.cur.min===t.min;
+          return <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:12,background:isCur?`${C.gold}22`:reached?`${C.green}15`:C.bg2,border:`1.5px solid ${isCur?C.gold:reached?C.green+"55":C.border}`,opacity:reached?1:.55}}>
+            <div style={{fontSize:24}}>{t.icon}</div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:900,color:isCur?C.gold:reached?C.green:C.cream}}>{t.name} {isCur&&<span style={{fontSize:10,color:C.gold,fontWeight:800}}>· ตอนนี้</span>}</div>
+              <div style={{fontSize:10.5,color:C.muted,fontWeight:700,marginTop:1}}>{t.msg}</div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:11,fontWeight:900,color:reached?C.gold:C.faint}}>{t.min} ⭐</div>
+              {reached&&<div style={{fontSize:9,color:C.green,fontWeight:800}}>✓</div>}
+            </div>
+          </div>;
+        })}
+      </div>
+    </div>
+  </>;
 }

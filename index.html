@@ -10,6 +10,35 @@
     <meta name="apple-mobile-web-app-title" content="Tracker" />
     <meta name="theme-color" content="#0e1320" />
     <title>Nutthanit · 65kg Tracker</title>
+    <style>
+      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: #0e1320;
+        color: #e8eaf0;
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
+        overflow-x: hidden;
+        overscroll-behavior: none;
+        font-family: 'Nunito', -apple-system, sans-serif;
+      }
+      body {
+        padding-top: env(safe-area-inset-top);
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+      #root {
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
+        background: #0e1320;
+      }
+      /* iOS Safari rubber-band bg */
+      html { background: #0e1320; }
+      /* Hide scrollbar on WebKit */
+      ::-webkit-scrollbar { display: none; }
+    </style>
   </head>
   <body>
     <div id="root"></div>
