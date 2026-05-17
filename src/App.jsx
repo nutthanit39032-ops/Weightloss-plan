@@ -472,16 +472,16 @@ function calcStars(day, goals){
   const muayArr = day.muays || (day.muay ? [day.muay] : []);
   const hasMuay = muayArr.some(m => m.rounds>0 || m.duration>0 || m.cal>0 || m.minutes>0);
   const hasClass = day.classes && day.classes.length>0 && day.classes.some(c=>c.cal>0||c.min>0);
-  const hasWeight = day.weightTrain && (day.weightTrain.cal>0 || day.weightTrain.min>0);
-  const exerciseDone = checked>=3 || hasRun || hasMuay || hasClass || hasWeight;
-  const hasWeight = !!day.weight;
+  const hasWeightTrain = day.weightTrain && (day.weightTrain.cal>0 || day.weightTrain.min>0);
+  const exerciseDone = checked>=3 || hasRun || hasMuay || hasClass || hasWeightTrain;
+  const hasWeightLog = !!day.weight;
   const mealsLogged = (day.foods||[]).length;
 
   const details = [
     {id:"cal", icon:"🍽️", label:"แคลพอดี", got: calPct>=0.85 && calPct<=1.15, value:`${Math.round(calPct*100)}% ของเป้า`},
     {id:"protein", icon:"💪", label:"โปรตีนถึงเป้า", got: protPct>=0.9, value:`${Math.round(protPct*100)}% ของเป้า`},
-    {id:"exercise", icon:"🏃‍♀️", label:"ออกกำลังกาย", got: exerciseDone, value: hasMuay?`มวย ${muayArr.length}x ✓`:hasRun?`วิ่ง ${runArr.length}x ✓`:hasClass?`คลาส ${day.classes.length}x ✓`:hasWeight?"เวท ✓":checked>=3?`เช็คครบ ${checked}`:`${checked}/3 รายการ`},
-    {id:"weight", icon:"⚖️", label:"บันทึกน้ำหนัก", got: hasWeight, value: hasWeight?`${day.weight} kg`:"ยังไม่บันทึก"},
+    {id:"exercise", icon:"🏃‍♀️", label:"ออกกำลังกาย", got: exerciseDone, value: hasMuay?`มวย ${muayArr.length}x ✓`:hasRun?`วิ่ง ${runArr.length}x ✓`:hasClass?`คลาส ${day.classes.length}x ✓`:hasWeightTrain?"เวท ✓":checked>=3?`เช็คครบ ${checked}`:`${checked}/3 รายการ`},
+    {id:"weight", icon:"⚖️", label:"บันทึกน้ำหนัก", got: hasWeightLog, value: hasWeightLog?`${day.weight} kg`:"ยังไม่บันทึก"},
     {id:"meals", icon:"📋", label:"บันทึกอาหาร", got: mealsLogged>=3, value:`${mealsLogged}/3 รายการ`},
   ];
   return {stars: details.filter(d=>d.got).length, total:5, details};
