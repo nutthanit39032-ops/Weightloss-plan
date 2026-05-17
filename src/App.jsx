@@ -690,7 +690,7 @@ export default function Tracker() {
 
         {tab==="today"    && <TodayTab    day={day} goals={goals} eaten={eaten} remain={remain} phase={phase} plan={plan} patch={patch} sx={sx} recipes={recipes} totalStars={totalStars} tier={tier} streak={streak} streakBadge={streakBadge}/>}
         {tab==="food"     && <FoodTab     day={day} patch={patch} sx={sx} recipes={recipes} setRecipes={setRecipes} eaten={eaten} goals={goals}/>}
-        {tab==="exercise" && <ExerciseTab day={day} patch={patch} sx={sx} plan={plan} runRec={runRec} exerciseCal={exerciseCal} tdee={tdee} tdeeInfo={tdeeInfo}/>}
+        {tab==="exercise" && <ExerciseTab day={day} patch={patch} sx={sx} plan={plan} runRec={runRec} exerciseCal={exerciseCal} tdee={tdee} tdeeInfo={tdeeInfo} eaten={eaten} logs={logs} scans={scans} customPlan={customPlan}/>}
         {tab==="progress" && <ProgressTab logs={logs} day={day} patch={patch} sx={sx} phase={phase} scans={scans} setScans={setScans} customPlan={customPlan} setCustomPlan={setCustomPlan} goalsFor={goalsFor} totalStars={totalStars} tier={tier} streak={streak} streakBadge={streakBadge} measures={measures} setMeasures={setMeasures} reports={reports} setReports={setReports} tdeeInfo={tdeeInfo}/>}
       </div>
     </div>
@@ -987,14 +987,35 @@ function FoodTab({day,patch,sx,recipes,setRecipes,eaten,goals}){
   const [rm,setRm]=useState(false);
   return <>
     <div style={{...sx.card,display:"flex",justifyContent:"space-around",textAlign:"center",padding:"14px 8px"}}>
-      {[["แคล",eaten.cal,goals.cal,C.gold],["P",eaten.protein,goals.protein,C.pink],["C",eaten.carbs,goals.carbs,C.green],["F",eaten.fat,goals.fat,C.blue]].map(([l,v,m,c])=>(
+      {[["kcal",eaten.cal,goals.cal,C.gold],["P",eaten.protein,goals.protein,C.pink],["C",eaten.carbs,goals.carbs,C.green],["F",eaten.fat,goals.fat,C.blue]].map(([l,v,m,c])=>(
         <div key={l}><div style={{fontSize:22,fontWeight:900,color:v>m?C.pink:c,fontFamily:F.round}}>{Math.round(v)}</div><div style={{fontSize:10,color:C.faint,fontWeight:700,marginTop:2}}>{l}/{m}</div></div>
       ))}
     </div>
 
-    <Sec accent={C.green}>🍱 เมนูของฉัน · ทำครั้งเดียว ใช้ซ้ำได้</Sec>
-    <div style={{fontSize:11.5,color:C.muted,marginBottom:10,lineHeight:1.6,fontWeight:600,padding:"9px 12px",background:C.bg2,borderRadius:11}}>💡 สร้าง Recipe — ใส่วัตถุดิบทั้งหมดที่ใส่ลงหม้อ (ดิบ/สุก) → บันทึก<br/>ตอนกินไปแท็บวันนี้ → กด <b style={{color:C.purple}}>🍱 กินจาก Recipe</b> → เลือกเมนู → ใส่ g หรือ %</div>
-    <button onClick={()=>setRm(true)} style={{...sx.btnF(C.green),marginBottom:13,fontSize:14,padding:"13px 0"}}>+ สร้าง Recipe ใหม่</button>
+    {/* ─── Quick add จาก database ─── */}
+    <Sec accent={C.green}>⚡ เพิ่มเร็ว · จาก USDA/INMU database</Sec>
+    <QuickAdd patch={patch} sx={sx} recipes={recipes||[]}/>
+
+    {/* ─── รายการอาหารวันนี้ ─── */}
+    <Sec accent={C.gold}>📋 รายการวันนี้ · {day.foods.length} รายการ</Sec>
+    <div style={sx.card}>
+      {day.foods.length===0&&<div style={{color:C.faint,fontSize:13,textAlign:"center",padding:"18px 0",fontWeight:600}}>ยังไม่มีรายการ 🍽️</div>}
+      {day.foods.map((f)=>(
+        <div key={f.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${C.border}`}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:14,color:C.cream,fontWeight:700}}>{f.src==="photo"?"📷 ":f.src==="recipe"?"🍱 ":f.src==="eatout"?"🍽️ ":f.src==="sweet"?"🥤 ":f.src==="ingredient"?"🥦 ":""}{f.name}</div>
+            <div style={{fontSize:11,color:C.faint,marginTop:2,fontWeight:600}}>P{f.protein.toFixed(0)} · C{f.carbs.toFixed(0)} · F{f.fat.toFixed(0)}{f.fiber>0?` · 🌾${f.fiber.toFixed(1)}`:""} · {f.time}</div>
+          </div>
+          <span style={{fontSize:20,fontWeight:900,color:C.gold,fontFamily:F.round}}>{Math.round(f.cal)}</span>
+          <span onClick={()=>patch((d)=>({...d,foods:d.foods.filter(x=>x.id!==f.id)}))} style={{cursor:"pointer",color:C.pink,fontSize:20,paddingLeft:12,fontWeight:800}}>×</span>
+        </div>
+      ))}
+    </div>
+
+    {/* ─── Recipe section ─── */}
+    <Sec accent={C.purple}>🍱 Recipes · ทำครั้งเดียว ใช้ซ้ำได้</Sec>
+    <div style={{fontSize:11.5,color:C.muted,marginBottom:10,lineHeight:1.6,fontWeight:600,padding:"9px 12px",background:C.bg2,borderRadius:11}}>💡 สร้าง Recipe — ใส่วัตถุดิบ + เครื่องปรุง → บันทึก<br/>ตอนกินไปแท็บวันนี้ → กด <b style={{color:C.purple}}>🍱 กินจาก Recipe</b> → เลือกเมนู → ใส่ g หรือ %</div>
+    <button onClick={()=>setRm(true)} style={{...sx.btnF(C.purple),marginBottom:13,fontSize:14,padding:"13px 0"}}>+ สร้าง Recipe ใหม่</button>
 
     {recipes.length===0&&<div style={{...sx.card,textAlign:"center",padding:"36px 16px"}}>
       <div style={{fontSize:42,marginBottom:9}}>🍱</div>
@@ -1207,6 +1228,10 @@ function RecipeModal({close,setRecipes,sx}){
   const [iAmt,setIAmt]=useState("");
   const [iUnit,setIUnit]=useState("g");
   const [iState,setIState]=useState("raw");  // ดิบ/สุก
+  // เครื่องปรุง (kcal only, ผู้ใช้กรอกเอง — ระบบกะ macro จาก ratio default seasoning)
+  const [extras,setExtras]=useState([]); // [{id,name,cal}]
+  const [exName,setExName]=useState("");
+  const [exCal,setExCal]=useState("");
   const [err,setErr]=useState("");
 
   // ค่าแปลงดิบ→สุก (USDA factor): สุก = ดิบ × X
@@ -1266,7 +1291,24 @@ function RecipeModal({close,setRecipes,sx}){
     setIName("");setIAmt("");setIUnit("g");setIState("raw");
   };
 
-  const totals=ings.reduce((s,i)=>({cal:s.cal+i.cal,p:s.p+i.p,c:s.c+i.c,f:s.f+i.f}),{cal:0,p:0,c:0,f:0});
+  // รวมจากวัตถุดิบ
+  const ingTotals = ings.reduce((s,i)=>({cal:s.cal+i.cal,p:s.p+i.p,c:s.c+i.c,f:s.f+i.f}),{cal:0,p:0,c:0,f:0});
+  // รวมจากเครื่องปรุง — ผู้ใช้กรอก kcal เท่านั้น
+  // ระบบกะ macro: เครื่องปรุงเฉลี่ย ~ น้ำมัน/น้ำตาล/ซีอิ๊ว = 30% C, 65% F, 5% P
+  const exTotalCal = extras.reduce((s,e)=>s+(+e.cal||0),0);
+  const exMacros = {
+    cal: exTotalCal,
+    p: Math.round(exTotalCal*0.05/4 * 10)/10,
+    c: Math.round(exTotalCal*0.30/4 * 10)/10,
+    f: Math.round(exTotalCal*0.65/9 * 10)/10,
+  };
+  // รวมทั้งหมด
+  const totals = {
+    cal: ingTotals.cal + exMacros.cal,
+    p:   Math.round((ingTotals.p + exMacros.p)*10)/10,
+    c:   Math.round((ingTotals.c + exMacros.c)*10)/10,
+    f:   Math.round((ingTotals.f + exMacros.f)*10)/10,
+  };
 
   // ประมาณน้ำหนักหลังทำเสร็จ จากวัตถุดิบทั้งหมด (ใช้ factor ดิบ→สุก)
   // สมุนไพร/ผัก (factor=1) → ผัด/ต้มแล้วหดเหลือ ~50%
@@ -1293,18 +1335,19 @@ function RecipeModal({close,setRecipes,sx}){
   const save=()=>{
     setErr("");
     if(!name.trim()){setErr("ตั้งชื่อเมนูก่อน");return;}
-    if(ings.length===0){setErr("เพิ่มวัตถุดิบอย่างน้อย 1 อย่าง");return;}
+    if(ings.length===0&&extras.length===0){setErr("เพิ่มวัตถุดิบหรือเครื่องปรุงอย่างน้อย 1 อย่าง");return;}
     // ใช้ค่าประมาณเสมอ — ผู้ใช้ไม่ต้องชั่งหลังทำเสร็จ
-    const totalG = estimatedG;
+    const totalG = Math.max(1, estimatedG);
     setRecipes(rs=>[...rs,{
       id:uid(), name, emoji,
       ingredients:ings.map(i=>({name:i.name,amount:i.amount,unit:i.unit,state:i.state})),
-      totalCal:totals.cal, totalP:Math.round(totals.p*10)/10, totalC:Math.round(totals.c*10)/10, totalF:Math.round(totals.f*10)/10,
+      extras:extras.map(e=>({name:e.name,cal:e.cal})),
+      totalCal:totals.cal, totalP:totals.p, totalC:totals.c, totalF:totals.f,
       cookedWeight:totalG,
       estimated:true,
       perGram:{cal:totals.cal/totalG,p:totals.p/totalG,c:totals.c/totalG,f:totals.f/totalG},
       // เก็บ field เก่าด้วยให้ backwards compatible
-      cal:totals.cal, protein:Math.round(totals.p*10)/10, carbs:Math.round(totals.c*10)/10, fat:Math.round(totals.f*10)/10,
+      cal:totals.cal, protein:totals.p, carbs:totals.c, fat:totals.f,
     }]);
     close();
   };
@@ -1346,6 +1389,31 @@ function RecipeModal({close,setRecipes,sx}){
         <button onClick={addIng} style={{...sx.btnF(C.blue),marginTop:10,padding:"10px 0",fontSize:13}}>+ เพิ่มเข้าเมนู</button>
       </div>
 
+      {/* ─── เครื่องปรุง (kcal only) ─── */}
+      <div style={{...sx.card,margin:0,borderColor:`${C.gold}44`,background:`${C.gold}10`}}>
+        <span style={{...sx.lbl,color:C.gold}}>🧂 เครื่องปรุง · กรอกแค่ kcal (ระบบกะ macro ให้)</span>
+        <div style={{fontSize:10.5,color:C.faint,fontWeight:600,marginBottom:9,lineHeight:1.5}}>เช่น น้ำมัน 1 ชต = 120 kcal · ซีอิ๊ว 1 ชต = 10 kcal · น้ำตาล 1 ชช = 16 kcal</div>
+        <div style={{display:"flex",gap:6}}>
+          <input style={{...sx.inp,flex:1.5}} placeholder="ชื่อ เช่น น้ำมัน, ซีอิ๊ว" value={exName} onChange={e=>setExName(e.target.value)}/>
+          <input style={{...sx.inp,flex:1}} type="number" placeholder="kcal" value={exCal} onChange={e=>setExCal(e.target.value)}/>
+          <button onClick={()=>{
+            if(!exName.trim()||!exCal||+exCal<=0)return;
+            setExtras(p=>[...p,{id:uid(),name:exName.trim(),cal:+exCal}]);
+            setExName("");setExCal("");
+          }} style={{...sx.btnF(C.gold),width:"auto",padding:"10px 14px",fontSize:13}}>+</button>
+        </div>
+        {extras.length>0&&<div style={{marginTop:10}}>
+          {extras.map(ex=>(
+            <div key={ex.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:C.bg2,borderRadius:9,marginBottom:5,fontSize:12.5,fontWeight:700,color:C.cream}}>
+              <span style={{flex:1}}>🧂 {ex.name}</span>
+              <span style={{color:C.gold,fontWeight:900}}>{ex.cal} kcal</span>
+              <button onClick={()=>setExtras(p=>p.filter(x=>x.id!==ex.id))} style={{background:"transparent",border:"none",color:C.pink,fontSize:16,cursor:"pointer",fontWeight:800,padding:0}}>×</button>
+            </div>
+          ))}
+          <div style={{fontSize:10.5,color:C.faint,fontWeight:700,marginTop:6,paddingLeft:4}}>รวมเครื่องปรุง: {exTotalCal} kcal · ประมาณ P{exMacros.p}g · C{exMacros.c}g · F{exMacros.f}g</div>
+        </div>}
+      </div>
+
       {/* ─── รายการวัตถุดิบที่ใส่ ─── */}
       {ings.length>0&&<div>
         <span style={{...sx.lbl,color:C.cream}}>วัตถุดิบในเมนู ({ings.length})</span>
@@ -1359,17 +1427,17 @@ function RecipeModal({close,setRecipes,sx}){
           </div>
         ))}
         <div style={{padding:"9px 11px",background:`${C.gold}15`,borderRadius:10,marginTop:8}}>
-          <div style={{fontSize:11,color:C.faint,fontWeight:700}}>รวมสารอาหารทั้งเมนู</div>
-          <div style={{fontSize:13,color:C.gold,fontWeight:800,marginTop:3}}>{totals.cal} kcal · P {Math.round(totals.p*10)/10}g · C {Math.round(totals.c*10)/10}g · F {Math.round(totals.f*10)/10}g</div>
+          <div style={{fontSize:11,color:C.faint,fontWeight:700}}>รวมสารอาหารทั้งเมนู (ทุกอย่างรวม)</div>
+          <div style={{fontSize:13,color:C.gold,fontWeight:800,marginTop:3}}>{Math.round(totals.cal)} kcal · P {totals.p}g · C {totals.c}g · F {totals.f}g</div>
         </div>
       </div>}
 
       {/* ─── สรุปก่อนบันทึก ─── */}
-      {ings.length>0&&<div style={{padding:"11px 13px",background:`${C.green}12`,borderRadius:12,border:`1px solid ${C.green}44`}}>
+      {(ings.length>0||extras.length>0)&&<div style={{padding:"11px 13px",background:`${C.green}12`,borderRadius:12,border:`1px solid ${C.green}44`}}>
         <div style={{fontSize:11,color:C.green,fontWeight:800,marginBottom:6,letterSpacing:.3}}>💡 พร้อมบันทึก</div>
         <div style={{fontSize:11.5,color:C.muted,fontWeight:600,lineHeight:1.7}}>
-          เก็บทุกวัตถุดิบที่ใส่ไว้ใน Recipe เป็น <b style={{color:C.gold}}>{totals.cal} kcal/หม้อ</b><br/>
-          ตอนกินค่อยเลือก <b style={{color:C.purple}}>กี่ % ของหม้อ</b> หรือ <b style={{color:C.gold}}>กี่ g (~{estimatedG}g)</b> ที่หน้าวันนี้
+          เก็บทุกวัตถุดิบ + เครื่องปรุงไว้ใน Recipe เป็น <b style={{color:C.gold}}>{Math.round(totals.cal)} kcal/หม้อ</b>{ings.length>0&&<>(~{estimatedG}g)</>}<br/>
+          ตอนกินค่อยเลือก <b style={{color:C.purple}}>กี่ %</b> หรือ <b style={{color:C.gold}}>กี่ g</b> ที่หน้าวันนี้
         </div>
       </div>}
 
@@ -1381,7 +1449,7 @@ function RecipeModal({close,setRecipes,sx}){
 }
 
 // ═══════════════ EXERCISE TAB ═══════════════
-function ExerciseTab({day,patch,sx,plan,runRec,exerciseCal,tdee,tdeeInfo}){
+function ExerciseTab({day,patch,sx,plan,runRec,exerciseCal,tdee,tdeeInfo,eaten,logs,scans,customPlan}){
   const [em,setEm]=useState(false);
   const n=(v)=>v===""?undefined:+v;
   // Multi-session: support both day.run (single, legacy) and day.runs (array, new)
@@ -1505,25 +1573,57 @@ function ExerciseTab({day,patch,sx,plan,runRec,exerciseCal,tdee,tdeeInfo}){
     <button onClick={addMuay} style={{...sx.btnF(C.gold),padding:"11px 0",fontSize:13,marginBottom:14}}>+ เพิ่มรอบมวย</button>
 
     {/* ━━━━ เวท Garmin ━━━━ */}
-    <Sec accent={C.cream}>🏋️ เวท · จาก Garmin</Sec>
+    <Sec accent={C.cream}>🏋️ Weight Training</Sec>
     <div style={{...sx.card,borderColor:`${C.cream}22`}}>
-      <div style={{fontSize:11,color:C.muted,marginBottom:10,fontWeight:600}}>กรอกแคล/เวลาจาก Garmin watch — รวมเข้า TDEE</div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9}}>
+      <div style={{fontSize:11,color:C.muted,marginBottom:10,fontWeight:600}}>กรอกแคล/เวลาจาก Garmin watch → รวมเข้า TDEE</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9,marginBottom:13}}>
         <div><span style={sx.lbl}>นาที</span><input style={sx.inp} type="number" placeholder="45" value={weightTrain.min??""} onChange={e=>setWT("min",n(e.target.value))}/></div>
-        <div><span style={sx.lbl}>แคล</span><input style={sx.inp} type="number" placeholder="kcal" value={weightTrain.cal??""} onChange={e=>setWT("cal",n(e.target.value))}/></div>
+        <div><span style={sx.lbl}>kcal</span><input style={sx.inp} type="number" placeholder="kcal" value={weightTrain.cal??""} onChange={e=>setWT("cal",n(e.target.value))}/></div>
         <div><span style={sx.lbl}>HR</span><input style={sx.inp} type="number" placeholder="bpm" value={weightTrain.hr??""} onChange={e=>setWT("hr",n(e.target.value))}/></div>
+      </div>
+
+      {/* ─── Exercise list checkboxes ─── */}
+      <div style={{paddingTop:13,borderTop:`1px solid ${C.border}`}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:9}}>
+          <div style={{fontSize:11,color:C.cream,fontWeight:800,letterSpacing:.3}}>✅ ติ๊กท่าที่ทำเสร็จ</div>
+          {(() => {
+            try {
+              const planExs = JSON.parse(localStorage.getItem("nt5_weight_plan")||"[]");
+              if(!planExs.length) return null;
+              const already = (weightTrain.exercises||[]).length>0;
+              return <button onClick={()=>{
+                if(already && !confirm("มีท่าอยู่แล้ว — แทนที่ทั้งหมดด้วยแผนเดือนนี้?")) return;
+                patch(d=>({...d,weightTrain:{
+                  ...(d.weightTrain||{}),
+                  exercises: planExs.map(ex=>({id:uid(),done:false,name:ex.name,sets:ex.sets,reps:ex.reps,kg:ex.kg,machine:ex.machine,focus:ex.focus,note:ex.note}))
+                }}));
+              }} style={{background:`${C.gold}22`,border:`1px solid ${C.gold}`,color:C.gold,padding:"6px 11px",borderRadius:9,fontSize:10.5,fontWeight:800,cursor:"pointer",fontFamily:F.round}}>📋 ใช้แผนเดือนนี้</button>;
+            } catch { return null; }
+          })()}
+        </div>
+        {(weightTrain.exercises||[]).map((ex,idx)=>(
+          <div key={ex.id} style={{display:"flex",alignItems:"center",gap:9,padding:"8px 0",borderBottom:`1px solid ${C.border}`}}>
+            <div onClick={()=>patch(d=>({...d,weightTrain:{...(d.weightTrain||{}),exercises:(d.weightTrain?.exercises||[]).map((e,i)=>i===idx?{...e,done:!e.done}:e)}}))} style={{width:21,height:21,borderRadius:6,flexShrink:0,cursor:"pointer",border:`2px solid ${ex.done?C.green:C.borderHi}`,background:ex.done?C.green:"transparent",display:"flex",alignItems:"center",justifyContent:"center",color:C.bg,fontSize:12,fontWeight:900}}>{ex.done?"✓":""}</div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,color:ex.done?C.faint:C.cream,fontWeight:700,textDecoration:ex.done?"line-through":"none"}}>{ex.machine?"🔧 ":""}{ex.name} {ex.sets&&<span style={{fontSize:11,color:C.faint,fontWeight:700}}>· {ex.sets}×{ex.reps}{ex.kg?` @ ${ex.kg}kg`:""}</span>}</div>
+              {ex.focus&&!ex.done&&<div style={{fontSize:10,color:C.gold,fontWeight:700,marginTop:1}}>🎯 {ex.focus}</div>}
+            </div>
+            <button onClick={()=>patch(d=>({...d,weightTrain:{...(d.weightTrain||{}),exercises:(d.weightTrain?.exercises||[]).filter((_,i)=>i!==idx)}}))} style={{background:"transparent",border:"none",color:C.pink,fontSize:16,cursor:"pointer",padding:"4px 6px",fontWeight:800}}>×</button>
+          </div>
+        ))}
+        <AddExerciseForm onAdd={(ex)=>patch(d=>({...d,weightTrain:{...(d.weightTrain||{}),exercises:[...(d.weightTrain?.exercises||[]),{id:uid(),done:false,...ex}]}}))} sx={sx}/>
       </div>
     </div>
 
     {/* ━━━━ คลาส Jetts ━━━━ */}
-    <Sec accent={C.purple}>💃 คลาส Jetts · จาก Garmin</Sec>
+    <Sec accent={C.purple}>💃 Jetts Classes · จาก Garmin</Sec>
     <div style={{...sx.card,borderColor:`${C.purple}33`}}>
       <div style={{fontSize:11,color:C.muted,marginBottom:10,fontWeight:600}}>คลาส Yoga, Body Pump, HIIT, ฯลฯ — เพิ่มได้หลายคลาส</div>
       {classes.map((cl,idx)=>(
         <div key={cl.id} style={{display:"grid",gridTemplateColumns:"1.4fr 1fr 0.8fr auto",gap:7,marginBottom:8,alignItems:"start"}}>
           <input style={sx.inp} placeholder="ชื่อคลาส" value={cl.name||""} onChange={e=>patch((d)=>({...d,classes:(d.classes||[]).map((c,i)=>i===idx?{...c,name:e.target.value}:c)}))}/>
-          <input style={sx.inp} type="number" placeholder="แคล" value={cl.cal??""} onChange={e=>patch((d)=>({...d,classes:(d.classes||[]).map((c,i)=>i===idx?{...c,cal:n(e.target.value)}:c)}))}/>
-          <input style={sx.inp} type="number" placeholder="นาที" value={cl.min??""} onChange={e=>patch((d)=>({...d,classes:(d.classes||[]).map((c,i)=>i===idx?{...c,min:n(e.target.value)}:c)}))}/>
+          <input style={sx.inp} type="number" placeholder="kcal" value={cl.cal??""} onChange={e=>patch((d)=>({...d,classes:(d.classes||[]).map((c,i)=>i===idx?{...c,cal:n(e.target.value)}:c)}))}/>
+          <input style={sx.inp} type="number" placeholder="min" value={cl.min??""} onChange={e=>patch((d)=>({...d,classes:(d.classes||[]).map((c,i)=>i===idx?{...c,min:n(e.target.value)}:c)}))}/>
           <button onClick={()=>patch((d)=>({...d,classes:(d.classes||[]).filter((_,i)=>i!==idx)}))} style={{background:"transparent",border:"none",color:C.pink,fontSize:20,cursor:"pointer",padding:"8px 4px",lineHeight:1}}>×</button>
         </div>
       ))}
@@ -1564,10 +1664,81 @@ function ExerciseTab({day,patch,sx,plan,runRec,exerciseCal,tdee,tdeeInfo}){
       </div>}
     </div>
 
+    {/* ━━━━ DEFICIT TRACKER ━━━━ */}
+    <Sec accent={C.pink}>🔥 Calorie Deficit · เผาเทียบกิน</Sec>
+    {(() => {
+      // Today deficit = TDEE - eaten
+      const todayDeficit = (tdee||0) - (eaten?.cal||0);
+      // Month deficit — sum (tdee_i - eaten_i) for each day in current month
+      const mon = day.date.slice(0,7);
+      const monthLogs = Object.values(logs||{}).filter(l=>l.date.startsWith(mon));
+      const latestScan = scans&&scans.length>0 ? [...scans].sort((a,b)=>b.date.localeCompare(a.date))[0] : null;
+      const lbm = latestScan?.leanMass || null;
+      let monthDeficit = 0;
+      let daysWithData = 0;
+      for(const l of monthLogs){
+        const dEaten = (l.foods||[]).reduce((s,f)=>s+f.cal,0);
+        if(dEaten<=0) continue; // skip days without food log
+        const dInfo = smartTDEE({weight: l.weight||day.weight||GOAL_START, lbm, day:l, eatenCal:dEaten});
+        monthDeficit += (dInfo.tdee - dEaten);
+        daysWithData++;
+      }
+      // 1 kg of fat ≈ 7700 kcal
+      const fatKg = monthDeficit / 7700;
+      const todayFatG = (todayDeficit / 7700) * 1000;
+
+      return <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <div style={{...sx.card,margin:0,padding:"14px 13px",background:`linear-gradient(155deg,${todayDeficit>0?C.green:C.pink}15,${C.bg2})`,borderColor:`${todayDeficit>0?C.green:C.pink}55`}}>
+          <div style={{fontSize:10.5,color:C.faint,fontWeight:800,letterSpacing:.3}}>วันนี้ · today</div>
+          <div style={{fontSize:26,fontWeight:900,color:todayDeficit>0?C.green:C.pink,fontFamily:F.round,marginTop:5,lineHeight:1}}>{todayDeficit>0?"−":"+"}{Math.abs(Math.round(todayDeficit))}</div>
+          <div style={{fontSize:10,color:C.muted,fontWeight:700,marginTop:3}}>kcal {todayDeficit>0?"deficit":"surplus"}</div>
+          <div style={{fontSize:10,color:C.faint,fontWeight:700,marginTop:6,paddingTop:6,borderTop:`1px solid ${C.border}`}}>
+            🔥 {todayDeficit>0?"ลด":"เพิ่ม"} ~{Math.abs(Math.round(todayFatG))} g ไขมัน
+          </div>
+        </div>
+        <div style={{...sx.card,margin:0,padding:"14px 13px",background:`linear-gradient(155deg,${monthDeficit>0?C.gold:C.pink}15,${C.bg2})`,borderColor:`${monthDeficit>0?C.gold:C.pink}55`}}>
+          <div style={{fontSize:10.5,color:C.faint,fontWeight:800,letterSpacing:.3}}>เดือนนี้ · {daysWithData}d</div>
+          <div style={{fontSize:26,fontWeight:900,color:monthDeficit>0?C.gold:C.pink,fontFamily:F.round,marginTop:5,lineHeight:1}}>{monthDeficit>0?"−":"+"}{Math.abs(Math.round(monthDeficit/1000))}<span style={{fontSize:14}}>k</span></div>
+          <div style={{fontSize:10,color:C.muted,fontWeight:700,marginTop:3}}>kcal total</div>
+          <div style={{fontSize:11,color:monthDeficit>0?C.gold:C.pink,fontWeight:900,marginTop:6,paddingTop:6,borderTop:`1px solid ${C.border}`}}>
+            🎯 {monthDeficit>0?"ลด":"เพิ่ม"} ~{Math.abs(fatKg).toFixed(2)} kg fat
+          </div>
+        </div>
+      </div>;
+    })()}
+
     {em&&<Modal close={()=>setEm(false)} title="+ เพิ่มกิจกรรม">
       <ExtraForm close={()=>setEm(false)} patch={patch} sx={sx}/>
     </Modal>}
   </>;
+}
+
+function AddExerciseForm({onAdd,sx}){
+  const [name,setName]=useState("");
+  const [sets,setSets]=useState("");
+  const [reps,setReps]=useState("");
+  const [kg,setKg]=useState("");
+  const PRESETS = ["Squat","Lunges","Leg Press","Hip Thrust","RDL","Lat Pulldown","Seated Row","Chest Press","Shoulder Press","Bicep Curl","Tricep Pushdown","Plank"];
+  const add = () => {
+    if(!name.trim()) return;
+    onAdd({name:name.trim(), sets:sets?+sets:undefined, reps:reps?+reps:undefined, kg:kg?+kg:undefined});
+    setName("");setSets("");setReps("");setKg("");
+  };
+  return <div style={{marginTop:9,paddingTop:9,borderTop:`1px dashed ${C.border}`}}>
+    <div style={{fontSize:10,color:C.faint,fontWeight:800,marginBottom:6}}>+ เพิ่มท่า (กดเลือก preset หรือพิมพ์)</div>
+    <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>
+      {PRESETS.map(p=>(
+        <span key={p} onClick={()=>setName(p)} style={{padding:"5px 9px",background:name===p?`${C.gold}25`:C.bg2,color:name===p?C.gold:C.muted,borderRadius:8,fontSize:10.5,fontWeight:700,cursor:"pointer",border:`1px solid ${name===p?C.gold:C.border}`}}>{p}</span>
+      ))}
+    </div>
+    <input style={sx.inp} placeholder="ชื่อท่า" value={name} onChange={e=>setName(e.target.value)}/>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr auto",gap:6,marginTop:7}}>
+      <input style={sx.inp} type="number" placeholder="sets" value={sets} onChange={e=>setSets(e.target.value)}/>
+      <input style={sx.inp} type="number" placeholder="reps" value={reps} onChange={e=>setReps(e.target.value)}/>
+      <input style={sx.inp} type="number" placeholder="kg" value={kg} onChange={e=>setKg(e.target.value)}/>
+      <button onClick={add} style={{...sx.btnF(C.cream),width:"auto",padding:"10px 14px",fontSize:13}}>+</button>
+    </div>
+  </div>;
 }
 
 function ExtraForm({close,patch,sx}){
@@ -2650,23 +2821,44 @@ ${summary.monMeasures.map(m=>`- ${m.date}: เอว ${m.waist||"—"} · สะ
   "concerns": ["ปัญหา/จุดที่ควรปรับ 1", "2"],
   "recommendations": {
     "diet": "คำแนะนำเรื่องอาหาร — เฉพาะเจาะจง ลด/เพิ่มอะไรเท่าไหร่",
-    "cardio": "คาร์ดิโอ — ระยะ/ความถี่/Zone",
-    "strength": "เวท — เน้นเครื่อง machine มากกว่า dumbbell · ระบุท่า/เซ็ต/รอบ เน้นจุดที่ต้องการ shape เฟิร์น (ก้น/ขา/หลัง)"
+    "cardio": "คาร์ดิโอ — ระยะ/ความถี่/Zone"
+  },
+  "weightPlan": {
+    "summary": "สรุปแผนเวทเดือนนี้ 1-2 ประโยค · เน้น machine มากกว่า dumbbell · โฟกัสที่ก้น/ขา/หลัง สำหรับ shape เฟิร์น",
+    "exercises": [
+      {"name": "Squat", "sets": 4, "reps": 10, "machine": true, "focus": "ก้น/ขา", "note": "ใช้ smith machine ถ้ามี"},
+      {"name": "Hip Thrust", "sets": 3, "reps": 12, "machine": true, "focus": "ก้น", "note": ""},
+      {"name": "Leg Press", "sets": 4, "reps": 12, "machine": true, "focus": "ขา", "note": ""}
+    ]
   },
   "focusAreas": ["จุดที่ต้องโฟกัสเดือนหน้า 1", "2"],
   "expectedOutcome": "ถ้าทำตามคำแนะนำ คาดว่าจะได้อะไรเดือนหน้า"
-}`;
+}
+
+ใส่ท่าเวท 5-8 ท่า · เลือกท่าที่ใช้ machine ก่อน · เน้นกลุ่มกล้ามที่ทำให้ shape คล้ายเฟิร์น/พิมพ์ชนก (ก้นกลม ขาเรียวแข็งแรง หลังกว้างเล็กน้อย เอวคอด)`;
 
       const r = await fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
         model:"claude-sonnet-4-20250514", max_tokens:2000,
         messages:[{role:"user",content:prompt}]
       })});
-      const data = await r.json();
+      // อ่าน response เป็น text ก่อนเสมอ — ป้องกัน parse error
+      const rawText = await r.text();
+      if(!r.ok){
+        throw new Error(`HTTP ${r.status}: ${rawText.slice(0,200)}`);
+      }
+      let data;
+      try { data = JSON.parse(rawText); }
+      catch(parseErr){
+        throw new Error("API ตอบไม่ใช่ JSON: "+rawText.slice(0,150));
+      }
       if(data.error) throw new Error(data.error.message||JSON.stringify(data.error).slice(0,150));
       const txt = (data.content||[]).map(c=>c.text||"").join("");
+      if(!txt) throw new Error("AI ตอบว่าง — ลองใหม่");
       const m = txt.match(/\{[\s\S]*\}/);
-      if(!m) throw new Error("AI ตอบไม่ใช่ JSON");
-      const parsed = JSON.parse(m[0]);
+      if(!m) throw new Error("AI ตอบไม่ใช่ JSON: "+txt.slice(0,150));
+      let parsed;
+      try { parsed = JSON.parse(m[0]); }
+      catch(e){ throw new Error("Parse JSON ผิด: "+m[0].slice(0,150)); }
       const newReport = {
         id: uid(),
         month: selectedMon,
@@ -2688,6 +2880,10 @@ ${summary.monMeasures.map(m=>`- ${m.date}: เอว ${m.waist||"—"} · สะ
 
   const setAccepted = (val) => {
     setReports(rs=>rs.map(r=>r.month===selectedMon?{...r,accepted:val}:r));
+    // ถ้ายินยอม + มี weightPlan → save เป็น default weight plan
+    if(val && existing?.analysis?.weightPlan?.exercises){
+      try { localStorage.setItem("nt5_weight_plan", JSON.stringify(existing.analysis.weightPlan.exercises)); } catch{}
+    }
   };
 
   const prevMonClick = () => {
@@ -2783,10 +2979,26 @@ ${summary.monMeasures.map(m=>`- ${m.date}: เอว ${m.waist||"—"} · สะ
           <div style={{fontSize:11,fontWeight:800,color:C.blue,marginBottom:5}}>🏃 คาร์ดิโอ</div>
           <div style={{fontSize:12,color:C.text,fontWeight:600,lineHeight:1.7}}>{existing.analysis.recommendations.cardio}</div>
         </div>}
-        {existing.analysis.recommendations.strength&&<div style={{padding:"11px 13px",background:C.bg2,borderRadius:11}}>
-          <div style={{fontSize:11,fontWeight:800,color:C.gold,marginBottom:5}}>🏋️ เวท (เน้น machine)</div>
-          <div style={{fontSize:12,color:C.text,fontWeight:600,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{existing.analysis.recommendations.strength}</div>
-        </div>}
+      </div>}
+
+      {/* Weight Training Plan with exercise list */}
+      {existing.analysis.weightPlan&&<div style={{...sx.card,borderColor:`${C.gold}55`,background:`linear-gradient(135deg,${C.gold}10,${C.bg2})`}}>
+        <div style={{fontSize:13,fontWeight:900,color:C.gold,marginBottom:9}}>🏋️ Weight Training Plan</div>
+        {existing.analysis.weightPlan.summary&&<div style={{fontSize:12,color:C.text,fontWeight:600,lineHeight:1.7,marginBottom:11,paddingBottom:11,borderBottom:`1px solid ${C.border}`}}>{existing.analysis.weightPlan.summary}</div>}
+        {(existing.analysis.weightPlan.exercises||[]).map((ex,i)=>(
+          <div key={i} style={{padding:"10px 12px",background:C.bg2,borderRadius:11,marginBottom:7,border:`1px solid ${C.border}`}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:9}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13.5,fontWeight:900,color:C.cream}}>
+                  {ex.machine?"🔧 ":"🏋️ "}{ex.name}
+                </div>
+                <div style={{fontSize:11,color:C.gold,fontWeight:800,marginTop:3}}>{ex.sets}×{ex.reps} {ex.kg?`@ ${ex.kg}kg`:""}</div>
+                {ex.focus&&<div style={{fontSize:10.5,color:C.faint,fontWeight:700,marginTop:3}}>🎯 โฟกัส: {ex.focus}</div>}
+                {ex.note&&<div style={{fontSize:10.5,color:C.muted,fontStyle:"italic",marginTop:3,lineHeight:1.5}}>💡 {ex.note}</div>}
+              </div>
+            </div>
+          </div>
+        ))}
       </div>}
 
       {existing.analysis.focusAreas?.length>0&&<div style={{...sx.card,borderColor:`${C.purple}55`,background:`${C.purple}10`}}>
